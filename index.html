@@ -25,7 +25,7 @@
         input:focus, select:focus { border-color: #059669; box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2); }
         button.save-btn { width: 100%; background: #059669; color: white; border: none; font-weight: 500; padding: 0.65rem; border-radius: 0.5rem; cursor: pointer; font-size: 0.875rem; transition: background 0.2s; }
         button.save-btn:hover { background: #047857; }
-        .list-container { max-height: 20rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
+        .list-container { max-height: 22rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
         .customer-card { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; }
         .sale-card { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; }
         .clear-btn { font-size: 0.75rem; color: #e11d48; background: none; border: none; cursor: pointer; text-decoration: underline; }
@@ -34,6 +34,7 @@
         .text-center { text-align: center; font-size: 0.75rem; color: #94a3b8; padding: 1rem 0; }
         .date-badge { font-size: 0.75rem; background: #065f46; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
         .item-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: #475569; margin-top: 0.3rem; padding-left: 0.5rem; border-left: 2px solid #fca5a5; align-items: center; }
+        .payment-row { border-left-color: #34d399; background: #f0fdf4; padding: 0.25rem 0.5rem; border-radius: 0.25rem; margin-top: 0.3rem; display: flex; justify-content: space-between; align-items: center; }
     </style>
 
     <!-- PWA Manifest & Service Worker Registration -->
@@ -80,6 +81,7 @@
                     <select id="type">
                         <option value="sale">Iib Caddaan ah (Sahal/Kaash)</option>
                         <option value="debt">Deyn Cusub (Customer Credit)</option>
+                        <option value="payment">Bixinta Deynta (Debt Payment / Bixin)</option>
                     </select>
                 </div>
 
@@ -89,8 +91,8 @@
                 </div>
 
                 <div>
-                    <label>Faahfaahinta Alaabta (Item / Description)</label>
-                    <input type="text" id="description" placeholder="Tusaale: Bariis ama Sokor" required>
+                    <label>Faahfaahinta Alaabta / Bixinta (Description)</label>
+                    <input type="text" id="description" placeholder="Tusaale: Bariis ama Lacag Bixin" required>
                 </div>
 
                 <div>
@@ -143,16 +145,23 @@
 
             const searchTerm = searchInput.value.toLowerCase();
 
-            // Calculate overall totals
+            // Calculate overall totals dynamically
             transactions.forEach(tx => {
-                if (tx.type === 'sale') salesTotal += parseFloat(tx.amount);
-                if (tx.type === 'debt') debtTotal += parseFloat(tx.amount);
+                const amt = parseFloat(tx.amount) || 0;
+                if (tx.type === 'sale') {
+                    salesTotal += amt;
+                } else if (tx.type === 'debt') {
+                    debtTotal += amt;
+                } else if (tx.type === 'payment') {
+                    debtTotal -= amt; // Subtract payments from total outstanding debt
+                }
             });
+            if (debtTotal < 0) debtTotal = 0;
 
             let cashSales = transactions.filter(tx => tx.type === 'sale');
-            let debtTransactions = transactions.filter(tx => tx.type === 'debt');
+            let debtTransactions = transactions.filter(tx => tx.type === 'debt' || tx.type === 'payment');
 
-            // Group debts by customer name
+            // Group debts and payments by customer name
             let customerLedgers = {};
             debtTransactions.forEach((tx) => {
                 let nameKey = (tx.customer || 'General').trim().toLowerCase();
@@ -163,14 +172,26 @@
                         items: []
                     };
                 }
-                customerLedgers[nameKey].total += parseFloat(tx.amount);
+                const amt = parseFloat(tx.amount) || 0;
+                if (tx.type === 'debt') {
+                    customerLedgers[nameKey].total += amt;
+                } else if (tx.type === 'payment') {
+                    customerLedgers[nameKey].total -= amt;
+                }
+                
                 customerLedgers[nameKey].items.push({ 
+                    type: tx.type,
                     desc: tx.description, 
-                    amount: parseFloat(tx.amount), 
+                    amount: amt, 
                     date: tx.date || todayDateStr,
                     time: tx.time, 
                     originalIndex: transactions.indexOf(tx) 
                 });
+            });
+
+            // Ensure customer total doesn't dip below zero in display
+            Object.keys(customerLedgers).forEach(key => {
+                if (customerLedgers[key].total < 0) customerLedgers[key].total = 0;
             });
 
             // Filter cash sales based on search
@@ -209,19 +230,28 @@
                 
                 let itemsHtml = '';
                 cust.items.slice().reverse().forEach(sub => {
-                    itemsHtml += `
-                        <div class="item-row">
-                            <span>${sub.desc} — <b>$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${sub.date} • ${sub.time})</span></span>
-                            <button type="button" onclick="deleteTx(${sub.originalIndex})" class="del-btn">✕ Tirtir</button>
-                        </div>
-                    `;
+                    if (sub.type === 'payment') {
+                        itemsHtml += `
+                            <div class="payment-row">
+                                <span style="color: #065f46;">✅ Bixin: ${sub.desc} — <b style="color:#059669;">-$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${sub.date} • ${sub.time})</span></span>
+                                <button type="button" onclick="deleteTx(${sub.originalIndex})" class="del-btn">✕ Tirtir</button>
+                            </div>
+                        `;
+                    } else {
+                        itemsHtml += `
+                            <div class="item-row">
+                                <span>${sub.desc} — <b>$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${sub.date} • ${sub.time})</span></span>
+                                <button type="button" onclick="deleteTx(${sub.originalIndex})" class="del-btn">✕ Tirtir</button>
+                            </div>
+                        `;
+                    }
                 });
 
                 custCard.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; border-bottom: 1px solid #fecdd3; padding-bottom: 0.3rem;">
                         <div>
                             <p style="font-weight: 700; color: #9f1239; font-size: 0.95rem;">👤 ${cust.name}</p>
-                            <span style="font-size: 10px; color: #64748b;">Wadarta Deynta Macmiilka</span>
+                            <span style="font-size: 10px; color: #64748b;">Wadarta Deynta Maqan</span>
                         </div>
                         <span style="font-weight: bold; font-size: 1.1rem; color: #e11d48;">$${cust.total.toFixed(2)}</span>
                     </div>
