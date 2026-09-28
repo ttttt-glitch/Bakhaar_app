@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="google" content="notranslate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xisaabta Ganacsigaga - Sales & Debt Tracker</title>
+    <title>Xisaabta Bakhaarka - Sales & Debt Tracker</title>
     
     <!-- Inline Native Styles for 100% Offline Reliability -->
     <style>
@@ -149,7 +149,7 @@
             const searchTerm = searchInput.value.toLowerCase();
 
             // Calculate overall totals from all active transactions
-            transactions.forEach((tx, idx) => {
+            transactions.forEach((tx) => {
                 const amt = parseFloat(tx.amount) || 0;
                 if (tx.type === 'sale') {
                     salesTotal += amt;
@@ -163,7 +163,13 @@
             if (debtTotal < 0) debtTotal = 0;
 
             let cashSales = transactions.filter((tx, idx) => tx.type === 'sale' && !archivedIndexes.includes(idx));
-            let debtTransactions = transactions.map((tx, idx) => ({ ...idxTx: tx, originalIndex: idx })).filter(item => (item.type === 'debt' || item.type === 'payment') && !archivedIndexes.includes(item.originalIndex));
+            
+            let debtTransactions = [];
+            transactions.forEach((tx, idx) => {
+                if ((tx.type === 'debt' || tx.type === 'payment') && !archivedIndexes.includes(idx)) {
+                    debtTransactions.push({ ...tx, originalIndex: idx });
+                }
+            });
 
             // Group debts and payments by customer name
             let customerLedgers = {};
@@ -253,7 +259,6 @@
                     }
                 });
 
-                // Add a "Sifee (Clean/Settle)" button if balance is zero or paid off to unclutter screen
                 let settleButtonHtml = '';
                 if (cust.total === 0 && cust.items.length > 0) {
                     const indexesStr = JSON.stringify(indexesToClear);
@@ -306,7 +311,6 @@
 
         function deleteTx(index) {
             transactions.splice(index, 1);
-            // Adjust archived indexes after splicing
             archivedIndexes = archivedIndexes.map(i => i > index ? i - 1 : i).filter(i => i !== index);
             updateUI();
         }
