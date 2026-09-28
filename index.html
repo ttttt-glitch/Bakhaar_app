@@ -124,9 +124,8 @@
                 listEl.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Lama helin wax u dhigma raadintaada.</p>`;
             }
 
-            filteredTransactions.slice().reverse().forEach((tx, index) => {
+            filteredTransactions.slice().reverse().forEach((tx) => {
                 const originalIndex = transactions.indexOf(tx);
-                if (tx.type === 'sale') /* already tallied */ 
 
                 const item = document.createElement('div');
                 item.className = `flex justify-between items-center p-2.5 rounded-lg border text-sm ${tx.type === 'sale' ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`;
