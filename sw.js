@@ -1,4 +1,4 @@
-const CACHE_NAME = 'bakhaar-cache-v3';
+const CACHE_NAME = 'bakhaar-cache-v4';
 const urlsToCache = [
   '/Bakhaar_app/',
   '/Bakhaar_app/index.html',
