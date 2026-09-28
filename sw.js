@@ -2,8 +2,7 @@ const CACHE_NAME = 'bakhaar-cache-v3';
 const urlsToCache = [
   '/Bakhaar_app/',
   '/Bakhaar_app/index.html',
-  '/Bakhaar_app/manifest.json',
-  'https://cdn.tailwindcss.com'
+  '/Bakhaar_app/manifest.json'
 ];
 
 // Install Event - Cache core files and skip waiting
