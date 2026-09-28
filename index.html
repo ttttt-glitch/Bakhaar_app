@@ -123,8 +123,9 @@
     </main>
 
     <script>
-        // Set Date
-        document.getElementById('current-date').innerText = new Date().toLocaleDateString();
+        // Set Header Date
+        const todayDateStr = new Date().toLocaleDateString();
+        document.getElementById('current-date').innerText = todayDateStr;
 
         // State Management
         let transactions = JSON.parse(localStorage.getItem('bakhaar_transactions')) || [];
@@ -148,11 +149,10 @@
                 if (tx.type === 'debt') debtTotal += parseFloat(tx.amount);
             });
 
-            // Separate cash sales and debt transactions
             let cashSales = transactions.filter(tx => tx.type === 'sale');
             let debtTransactions = transactions.filter(tx => tx.type === 'debt');
 
-            // Group debts by customer name cleanly
+            // Group debts by customer name
             let customerLedgers = {};
             debtTransactions.forEach((tx) => {
                 let nameKey = (tx.customer || 'General').trim().toLowerCase();
@@ -167,6 +167,7 @@
                 customerLedgers[nameKey].items.push({ 
                     desc: tx.description, 
                     amount: parseFloat(tx.amount), 
+                    date: tx.date || todayDateStr,
                     time: tx.time, 
                     originalIndex: transactions.indexOf(tx) 
                 });
@@ -187,7 +188,7 @@
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <p style="font-weight: 600; color: #065f46;">🛒 ${tx.customer || 'Kaash'}: ${tx.description}</p>
-                            <span style="font-size: 10px; color: #64748b;">${tx.time} • Kaash</span>
+                            <span style="font-size: 10px; color: #64748b;">${tx.date || todayDateStr} • ${tx.time} • Kaash</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-weight: bold; color: #059669;">$${parseFloat(tx.amount).toFixed(2)}</span>
@@ -198,7 +199,7 @@
                 listEl.appendChild(item);
             });
 
-            // Render Customer Ledgers (Accumulated by Name)
+            // Render Customer Ledgers with Date & Time Stamps
             Object.keys(customerLedgers).forEach(key => {
                 let cust = customerLedgers[key];
                 if (searchTerm && !cust.name.toLowerCase().includes(searchTerm)) return;
@@ -210,7 +211,7 @@
                 cust.items.slice().reverse().forEach(sub => {
                     itemsHtml += `
                         <div class="item-row">
-                            <span>${sub.desc} — <b>$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#94a3b8;">(${sub.time})</span></span>
+                            <span>${sub.desc} — <b>$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${sub.date} • ${sub.time})</span></span>
                             <button type="button" onclick="deleteTx(${sub.originalIndex})" class="del-btn">✕ Tirtir</button>
                         </div>
                     `;
@@ -244,9 +245,10 @@
             const customer = document.getElementById('customer').value.trim();
             const description = document.getElementById('description').value.trim();
             const amount = document.getElementById('amount').value;
+            const date = new Date().toLocaleDateString();
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            transactions.push({ type, customer, description, amount, time });
+            transactions.push({ type, customer, description, amount, date, time });
             form.reset();
             updateUI();
         });
