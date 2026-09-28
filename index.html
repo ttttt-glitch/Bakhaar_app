@@ -148,19 +148,33 @@
 
             const searchTerm = searchInput.value.toLowerCase();
 
-            // Calculate overall totals from all active transactions
+            // Revenue & Debt calculations:
+            // 1. Direct sales add to total sales revenue.
+            // 2. Initial debt entries add to total active debt.
+            // 3. Payment entries reduce active debt. 
+            // NOTE: Total Sales revenue includes Cash Sales AND collected Debt Payments. 
+            // We use a permanent persistent revenue ledger so deleting a payment history record doesn't delete it from revenue.
+            let persistentRevenue = parseFloat(localStorage.getItem('bakhaar_persistent_revenue')) || 0;
+
             transactions.forEach((tx) => {
                 const amt = parseFloat(tx.amount) || 0;
-                if (tx.type === 'sale') {
-                    salesTotal += amt;
-                } else if (tx.type === 'debt') {
+                if (tx.type === 'debt') {
                     debtTotal += amt;
                 } else if (tx.type === 'payment') {
                     debtTotal -= amt; 
-                    salesTotal += amt; 
                 }
             });
             if (debtTotal < 0) debtTotal = 0;
+
+            // Recalculate salesTotal from current active records plus any locked-in persistent revenue from deleted/archived payment logs
+            let activeSalesAndPayments = 0;
+            transactions.forEach(tx => {
+                const amt = parseFloat(tx.amount) || 0;
+                if (tx.type === 'sale' || tx.type === 'payment') {
+                    activeSalesAndPayments += amt;
+                }
+            });
+            salesTotal = persistentRevenue + activeSalesAndPayments;
 
             let cashSales = transactions.filter((tx, idx) => tx.type === 'sale' && !archivedIndexes.includes(idx));
             
@@ -171,7 +185,7 @@
                 }
             });
 
-            // Group debts and payments by customer name
+            // Group debts and payments strictly by customer name inside customer cards
             let customerLedgers = {};
             debtTransactions.forEach((tx) => {
                 let nameKey = (tx.customer || 'General').trim().toLowerCase();
@@ -209,7 +223,7 @@
                 (tx.description && tx.description.toLowerCase().includes(searchTerm))
             );
 
-            // Render Cash Sales
+            // Render Standalone Cash Sales
             filteredCash.slice().reverse().forEach((tx) => {
                 const originalIndex = transactions.indexOf(tx);
                 const item = document.createElement('div');
@@ -229,7 +243,7 @@
                 listEl.appendChild(item);
             });
 
-            // Render Customer Ledgers
+            // Render Customer Ledgers (Debts and Payments nicely combined inside)
             Object.keys(customerLedgers).forEach(key => {
                 let cust = customerLedgers[key];
                 if (searchTerm && !cust.name.toLowerCase().includes(searchTerm)) return;
@@ -245,7 +259,7 @@
                     if (sub.type === 'payment') {
                         itemsHtml += `
                             <div class="payment-row">
-                                <span style="color: #065f46;">✅ Bixin: ${sub.desc} — <b style="color:#059669;">-$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${sub.date} • ${sub.time})</span></span>
+                                <span>✅ Bixin: ${sub.desc} — <b style="color:#059669;">-$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${sub.date} • ${sub.time})</span></span>
                                 <button type="button" onclick="deleteTx(${sub.originalIndex})" class="del-btn">✕ Tirtir</button>
                             </div>
                         `;
@@ -310,6 +324,13 @@
         });
 
         function deleteTx(index) {
+            // Secure revenue before deleting a payment or sale row so the money doesn't vanish from total sales
+            let txToDelete = transactions[index];
+            if (txToDelete && (txToDelete.type === 'sale' || txToDelete.type === 'payment')) {
+                let currentPersistent = parseFloat(localStorage.getItem('bakhaar_persistent_revenue')) || 0;
+                localStorage.setItem('bakhaar_persistent_revenue', currentPersistent + parseFloat(txToDelete.amount || 0));
+            }
+
             transactions.splice(index, 1);
             archivedIndexes = archivedIndexes.map(i => i > index ? i - 1 : i).filter(i => i !== index);
             updateUI();
@@ -331,6 +352,7 @@
                 transactions = [];
                 archivedIndexes = [];
                 localStorage.removeItem('bakhaar_archived');
+                localStorage.removeItem('bakhaar_persistent_revenue');
                 updateUI();
             }
         }
