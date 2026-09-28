@@ -25,7 +25,7 @@
         input:focus, select:focus { border-color: #059669; box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2); }
         button.save-btn { width: 100%; background: #059669; color: white; border: none; font-weight: 500; padding: 0.65rem; border-radius: 0.5rem; cursor: pointer; font-size: 0.875rem; transition: background 0.2s; }
         button.save-btn:hover { background: #047857; }
-        .list-container { max-height: 18rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
+        .list-container { max-height: 20rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
         .customer-card { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; }
         .sale-card { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; }
         .clear-btn { font-size: 0.75rem; color: #e11d48; background: none; border: none; cursor: pointer; text-decoration: underline; }
@@ -33,7 +33,7 @@
         .del-btn:hover { color: #e11d48; }
         .text-center { text-align: center; font-size: 0.75rem; color: #94a3b8; padding: 1rem 0; }
         .date-badge { font-size: 0.75rem; background: #065f46; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
-        .item-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: #475569; margin-top: 0.25rem; padding-left: 0.5rem; border-left: 2px solid #cbd5e1; }
+        .item-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: #475569; margin-top: 0.3rem; padding-left: 0.5rem; border-left: 2px solid #fca5a5; align-items: center; }
     </style>
 
     <!-- PWA Manifest & Service Worker Registration -->
@@ -84,8 +84,13 @@
                 </div>
 
                 <div>
-                    <label>Magaca Macmiilka / Alaabta</label>
-                    <input type="text" id="description" placeholder="Tusaale: Cali (Sokor)" required>
+                    <label>Magaca Macmiilka (Customer Name)</label>
+                    <input type="text" id="customer" placeholder="Tusaale: Khadar" required>
+                </div>
+
+                <div>
+                    <label>Faahfaahinta Alaabta (Item / Description)</label>
+                    <input type="text" id="description" placeholder="Tusaale: Bariis ama Sokor" required>
                 </div>
 
                 <div>
@@ -143,27 +148,35 @@
                 if (tx.type === 'debt') debtTotal += parseFloat(tx.amount);
             });
 
-            // Separate cash sales and group debts by customer name
+            // Separate cash sales and debt transactions
             let cashSales = transactions.filter(tx => tx.type === 'sale');
             let debtTransactions = transactions.filter(tx => tx.type === 'debt');
 
-            // Group debts by customer description/name
+            // Group debts by customer name cleanly
             let customerLedgers = {};
-            debtTransactions.forEach((tx, index) => {
-                let nameKey = tx.description.trim().toLowerCase();
+            debtTransactions.forEach((tx) => {
+                let nameKey = (tx.customer || 'General').trim().toLowerCase();
                 if (!customerLedgers[nameKey]) {
                     customerLedgers[nameKey] = {
-                        name: tx.description,
+                        name: tx.customer || 'Macmiil',
                         total: 0,
                         items: []
                     };
                 }
                 customerLedgers[nameKey].total += parseFloat(tx.amount);
-                customerLedgers[nameKey].items.push({ amount: parseFloat(tx.amount), time: tx.time, originalIndex: index });
+                customerLedgers[nameKey].items.push({ 
+                    desc: tx.description, 
+                    amount: parseFloat(tx.amount), 
+                    time: tx.time, 
+                    originalIndex: transactions.indexOf(tx) 
+                });
             });
 
-            // Filter based on search input
-            let filteredCash = cashSales.filter(tx => tx.description.toLowerCase().includes(searchTerm));
+            // Filter cash sales based on search
+            let filteredCash = cashSales.filter(tx => 
+                (tx.customer && tx.customer.toLowerCase().includes(searchTerm)) || 
+                (tx.description && tx.description.toLowerCase().includes(searchTerm))
+            );
 
             // Render Cash Sales
             filteredCash.slice().reverse().forEach((tx) => {
@@ -173,7 +186,7 @@
                 item.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <p style="font-weight: 600; color: #065f46;">🛒 Iib Caddaan: ${tx.description}</p>
+                            <p style="font-weight: 600; color: #065f46;">🛒 ${tx.customer || 'Kaash'}: ${tx.description}</p>
                             <span style="font-size: 10px; color: #64748b;">${tx.time} • Kaash</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
@@ -185,7 +198,7 @@
                 listEl.appendChild(item);
             });
 
-            // Render Customer Ledgers
+            // Render Customer Ledgers (Accumulated by Name)
             Object.keys(customerLedgers).forEach(key => {
                 let cust = customerLedgers[key];
                 if (searchTerm && !cust.name.toLowerCase().includes(searchTerm)) return;
@@ -194,17 +207,22 @@
                 custCard.className = 'customer-card';
                 
                 let itemsHtml = '';
-                cust.items.forEach(sub => {
-                    itemsHtml += `<div class="item-row"><span>Alaab/Lacag: $${sub.amount.toFixed(2)} (${sub.time})</span></div>`;
+                cust.items.slice().reverse().forEach(sub => {
+                    itemsHtml += `
+                        <div class="item-row">
+                            <span>${sub.desc} — <b>$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#94a3b8;">(${sub.time})</span></span>
+                            <button type="button" onclick="deleteTx(${sub.originalIndex})" class="del-btn">✕ Tirtir</button>
+                        </div>
+                    `;
                 });
 
                 custCard.innerHTML = `
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.4rem; border-bottom: 1px solid #fecdd3; padding-bottom: 0.3rem;">
                         <div>
-                            <p style="font-weight: 700; color: #9f1239;">👤 Macmiil: ${cust.name}</p>
-                            <span style="font-size: 10px; color: #64748b;">Deynta Guud ee Isku-geyn</span>
+                            <p style="font-weight: 700; color: #9f1239; font-size: 0.95rem;">👤 ${cust.name}</p>
+                            <span style="font-size: 10px; color: #64748b;">Wadarta Deynta Macmiilka</span>
                         </div>
-                        <span style="font-weight: bold; font-size: 1.05rem; color: #e11d48;">$${cust.total.toFixed(2)}</span>
+                        <span style="font-weight: bold; font-size: 1.1rem; color: #e11d48;">$${cust.total.toFixed(2)}</span>
                     </div>
                     ${itemsHtml}
                 `;
@@ -223,11 +241,12 @@
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const type = document.getElementById('type').value;
-            const description = document.getElementById('description').value;
+            const customer = document.getElementById('customer').value.trim();
+            const description = document.getElementById('description').value.trim();
             const amount = document.getElementById('amount').value;
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
 
-            transactions.push({ type, description, amount, time });
+            transactions.push({ type, customer, description, amount, time });
             form.reset();
             updateUI();
         });
