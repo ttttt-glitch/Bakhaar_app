@@ -11,7 +11,7 @@
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
         body { background-color: #f1f5f9; color: #1e293b; padding-bottom: 3rem; }
         header { background-color: #047857; color: white; padding: 1rem; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
-        .max-w { max-w: 28rem; margin: 0 auto; max-width: 28rem; display: flex; justify-content: space-between; align-items: center; }
+        .max { max-width: 28rem; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
         main { max-width: 28rem; margin: 0 auto; padding: 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
         .card { background: white; padding: 1rem; border-radius: 0.75rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
@@ -25,15 +25,15 @@
         input:focus, select:focus { border-color: #059669; box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2); }
         button.save-btn { width: 100%; background: #059669; color: white; border: none; font-weight: 500; padding: 0.65rem; border-radius: 0.5rem; cursor: pointer; font-size: 0.875rem; transition: background 0.2s; }
         button.save-btn:hover { background: #047857; }
-        .list-container { max-height: 15rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; }
-        .tx-item { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem; border-radius: 0.5rem; border: 1px solid; font-size: 0.875rem; }
-        .tx-sale { background: #ecfdf5; border-color: #a7f3d0; }
-        .tx-debt { background: #fff1f2; border-color: #fecdd3; }
+        .list-container { max-height: 18rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
+        .customer-card { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; }
+        .sale-card { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; }
         .clear-btn { font-size: 0.75rem; color: #e11d48; background: none; border: none; cursor: pointer; text-decoration: underline; }
         .del-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 0.8rem; padding: 0.2rem 0.4rem; }
         .del-btn:hover { color: #e11d48; }
         .text-center { text-align: center; font-size: 0.75rem; color: #94a3b8; padding: 1rem 0; }
         .date-badge { font-size: 0.75rem; background: #065f46; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+        .item-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: #475569; margin-top: 0.25rem; padding-left: 0.5rem; border-left: 2px solid #cbd5e1; }
     </style>
 
     <!-- PWA Manifest & Service Worker Registration -->
@@ -61,11 +61,11 @@
         <!-- Summary Cards -->
         <div class="grid-2">
             <div class="card">
-                <p class="label">Iibka Maanta (Sales)</p>
+                <p class="label">Iibka Guud (Total Sales)</p>
                 <p id="total-sales" class="sales-val">0.00</p>
             </div>
             <div class="card">
-                <p class="label">Deynta Maqan (Debt)</p>
+                <p class="label">Deynta Maqan (Total Debt)</p>
                 <p id="total-debt" class="debt-val">0.00</p>
             </div>
         </div>
@@ -78,14 +78,14 @@
                 <div>
                     <label>Nooca (Type)</label>
                     <select id="type">
-                        <option value="sale">Iib Caddaan ah (Sahal)</option>
-                        <option value="debt">Deyn Cusub (New Credit/Debt)</option>
+                        <option value="sale">Iib Caddaan ah (Sahal/Kaash)</option>
+                        <option value="debt">Deyn Cusub (Customer Credit)</option>
                     </select>
                 </div>
 
                 <div>
                     <label>Magaca Macmiilka / Alaabta</label>
-                    <input type="text" id="description" placeholder="Tusaale: Sokor / Cali" required>
+                    <input type="text" id="description" placeholder="Tusaale: Cali (Sokor)" required>
                 </div>
 
                 <div>
@@ -97,7 +97,7 @@
             </form>
         </div>
 
-        <!-- Transaction Lists -->
+        <!-- Transaction Lists / Customer Ledger -->
         <div class="card">
             <h2>
                 <span>Diiwaanka Dhaqdhaqaaqa</span>
@@ -111,7 +111,7 @@
 
             <div id="transactions-list" class="list-container">
                 <!-- Dynamic Items Go Here -->
-                <p class="text-center">Wali wax xisaab ah lama gelin maanta.</p>
+                <p class="text-center">Wali wax xisaab ah lama gelin.</p>
             </div>
         </div>
 
@@ -137,39 +137,83 @@
 
             const searchTerm = searchInput.value.toLowerCase();
 
-            // Calculate overall totals across all transactions
+            // Calculate overall totals
             transactions.forEach(tx => {
                 if (tx.type === 'sale') salesTotal += parseFloat(tx.amount);
                 if (tx.type === 'debt') debtTotal += parseFloat(tx.amount);
             });
 
-            // Filter transactions based on what the user types
-            const filteredTransactions = transactions.filter(tx => 
-                tx.description.toLowerCase().includes(searchTerm)
-            );
+            // Separate cash sales and group debts by customer name
+            let cashSales = transactions.filter(tx => tx.type === 'sale');
+            let debtTransactions = transactions.filter(tx => tx.type === 'debt');
 
-            if (filteredTransactions.length === 0) {
-                listEl.innerHTML = `<p class="text-center">Lama helin wax u dhigma raadintaada.</p>`;
-            }
+            // Group debts by customer description/name
+            let customerLedgers = {};
+            debtTransactions.forEach((tx, index) => {
+                let nameKey = tx.description.trim().toLowerCase();
+                if (!customerLedgers[nameKey]) {
+                    customerLedgers[nameKey] = {
+                        name: tx.description,
+                        total: 0,
+                        items: []
+                    };
+                }
+                customerLedgers[nameKey].total += parseFloat(tx.amount);
+                customerLedgers[nameKey].items.push({ amount: parseFloat(tx.amount), time: tx.time, originalIndex: index });
+            });
 
-            filteredTransactions.slice().reverse().forEach((tx) => {
+            // Filter based on search input
+            let filteredCash = cashSales.filter(tx => tx.description.toLowerCase().includes(searchTerm));
+
+            // Render Cash Sales
+            filteredCash.slice().reverse().forEach((tx) => {
                 const originalIndex = transactions.indexOf(tx);
-
                 const item = document.createElement('div');
-                item.className = `tx-item ${tx.type === 'sale' ? 'tx-sale' : 'tx-debt'}`;
-                
+                item.className = 'sale-card';
                 item.innerHTML = `
-                    <div>
-                        <p style="font-weight: 500; color: #1e293b;">${tx.description}</p>
-                        <span style="font-size: 10px; color: #64748b;">${tx.time} • ${tx.type === 'sale' ? 'Iib' : 'Deyn'}</span>
-                    </div>
-                    <div style="display: flex; align-items: center; gap: 0.5rem;">
-                        <span style="font-weight: bold; color: ${tx.type === 'sale' ? '#059669' : '#e11d48'};">$${parseFloat(tx.amount).toFixed(2)}</span>
-                        <button type="button" onclick="deleteTx(${originalIndex})" class="del-btn">✕</button>
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <p style="font-weight: 600; color: #065f46;">🛒 Iib Caddaan: ${tx.description}</p>
+                            <span style="font-size: 10px; color: #64748b;">${tx.time} • Kaash</span>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem;">
+                            <span style="font-weight: bold; color: #059669;">$${parseFloat(tx.amount).toFixed(2)}</span>
+                            <button type="button" onclick="deleteTx(${originalIndex})" class="del-btn">✕</button>
+                        </div>
                     </div>
                 `;
                 listEl.appendChild(item);
             });
+
+            // Render Customer Ledgers
+            Object.keys(customerLedgers).forEach(key => {
+                let cust = customerLedgers[key];
+                if (searchTerm && !cust.name.toLowerCase().includes(searchTerm)) return;
+
+                const custCard = document.createElement('div');
+                custCard.className = 'customer-card';
+                
+                let itemsHtml = '';
+                cust.items.forEach(sub => {
+                    itemsHtml += `<div class="item-row"><span>Alaab/Lacag: $${sub.amount.toFixed(2)} (${sub.time})</span></div>`;
+                });
+
+                custCard.innerHTML = `
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.35rem;">
+                        <div>
+                            <p style="font-weight: 700; color: #9f1239;">👤 Macmiil: ${cust.name}</p>
+                            <span style="font-size: 10px; color: #64748b;">Deynta Guud ee Isku-geyn</span>
+                        </div>
+                        <span style="font-weight: bold; font-size: 1.05rem; color: #e11d48;">$${cust.total.toFixed(2)}</span>
+                    </div>
+                    ${itemsHtml}
+                `;
+                listEl.appendChild(custCard);
+            });
+
+            if (listEl.children.length === 0) {
+                listEl.innerHTML = `<p class="text-center">Lama helin wax u dhigma raadintaada.</p>`;
+            }
 
             totalSalesEl.innerText = `$${salesTotal.toFixed(2)}`;
             totalDebtEl.innerText = `$${debtTotal.toFixed(2)}`;
