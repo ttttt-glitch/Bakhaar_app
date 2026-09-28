@@ -7,12 +7,17 @@
     <title>Xisaabta Bakhaarka - Sales & Debt Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- PWA Manifest & Service Worker Registration -->
+    <!-- PWA Manifest & Service Worker Registration with Safe Offline Fallback -->
     <link rel="manifest" href="/Bakhaar_app/manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/Bakhaar_app/sw.js');
+          navigator.serviceWorker.register('/Bakhaar_app/sw.js')
+            .then(reg => {
+              // Check for updates automatically on load
+              reg.update();
+            })
+            .catch(err => console.log('SW registration failed: ', err));
         });
       }
     </script>
@@ -94,7 +99,7 @@
         // Set Date
         document.getElementById('current-date').innerText = new Date().toLocaleDateString();
 
-        // State Management
+        // State Management - Safely initialized
         let transactions = JSON.parse(localStorage.getItem('bakhaar_transactions')) || [];
 
         const form = document.getElementById('record-form');
