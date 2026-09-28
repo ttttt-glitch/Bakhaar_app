@@ -5,6 +5,16 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Xisaabta Bakhaarka - Sales & Debt Tracker</title>
     <script src="https://cdn.tailwindcss.com"></script>
+    
+    <!-- PWA Manifest & Service Worker Registration -->
+    <link rel="manifest" href="/Bakhaar_app/manifest.json">
+    <script>
+      if ('serviceWorker' in navigator) {
+        window.addEventListener('load', () => {
+          navigator.serviceWorker.register('/Bakhaar_app/sw.js');
+        });
+      }
+    </script>
 </head>
 <body class="bg-slate-100 text-slate-800 font-sans pb-12">
 
@@ -32,20 +42,20 @@
 
         <!-- Quick Actions Form -->
         <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
-            <h2 class="font-semibold text-slate-700 border-b pb-2">Diiwaangeli Wax Kala Ii/Deyn</h2>
+            <h2 class="font-semibold text-slate-700 border-b pb-2">Diiwaangelinta Wax Kala iibsiga/Deynta</h2>
             
             <form id="record-form" class="space-y-3">
                 <div>
                     <label class="block text-xs font-medium text-slate-600 mb-1">Nooca (Type)</label>
                     <select id="type" class="w-full p-2.5 border rounded-lg bg-slate-50 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
-                        <option value="sale">Iib Caddaan ah (Cash Sale)</option>
+                        <option value="sale">Iib Caddaan ah (Sahal)</option>
                         <option value="debt">Deyn Cusub (New Credit/Debt)</option>
                     </select>
                 </div>
 
                 <div>
                     <label class="block text-xs font-medium text-slate-600 mb-1">Magaca Macmiilka / Alaabta</label>
-                    <input type="text" id="description" placeholder="Tusaale: Shukumaan / Cali" required class="w-full p-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                    <input type="text" id="description" placeholder="Tusaale: Sokor / Cali" required class="w-full p-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
                 </div>
 
                 <div>
