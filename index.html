@@ -5,91 +5,113 @@
     <meta name="google" content="notranslate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Xisaabta Bakhaarka - Sales & Debt Tracker</title>
-    <script src="https://cdn.tailwindcss.com"></script>
     
-    <!-- PWA Manifest & Service Worker Registration with Safe Offline Fallback -->
+    <!-- Inline Native Styles for 100% Offline Reliability -->
+    <style>
+        * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        body { background-color: #f1f5f9; color: #1e293b; padding-bottom: 3rem; }
+        header { background-color: #047857; color: white; padding: 1rem; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        .max-w { max-w: 28rem; margin: 0 auto; max-width: 28rem; display: flex; justify-content: space-between; align-items: center; }
+        main { max-width: 28rem; margin: 0 auto; padding: 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
+        .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
+        .card { background: white; padding: 1rem; border-radius: 0.75rem; border: 1px solid #e2e8f0; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+        .card p.label { font-size: 0.75rem; color: #64748b; font-weight: 500; margin-bottom: 0.25rem; }
+        .sales-val { font-size: 1.5rem; font-weight: 700; color: #059669; }
+        .debt-val { font-size: 1.5rem; font-weight: 700; color: #e11d48; }
+        h2 { font-size: 0.95rem; font-weight: 600; color: #334155; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+        form { display: flex; flex-direction: column; gap: 0.75rem; }
+        label { display: block; font-size: 0.75rem; font-weight: 500; color: #475569; margin-bottom: 0.25rem; }
+        input, select { width: 100%; padding: 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: #f8fafc; }
+        input:focus, select:focus { border-color: #059669; box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2); }
+        button.save-btn { width: 100%; background: #059669; color: white; border: none; font-weight: 500; padding: 0.65rem; border-radius: 0.5rem; cursor: pointer; font-size: 0.875rem; transition: background 0.2s; }
+        button.save-btn:hover { background: #047857; }
+        .list-container { max-height: 15rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.5rem; }
+        .tx-item { display: flex; justify-content: space-between; align-items: center; padding: 0.65rem; border-radius: 0.5rem; border: 1px solid; font-size: 0.875rem; }
+        .tx-sale { background: #ecfdf5; border-color: #a7f3d0; }
+        .tx-debt { background: #fff1f2; border-color: #fecdd3; }
+        .clear-btn { font-size: 0.75rem; color: #e11d48; background: none; border: none; cursor: pointer; text-decoration: underline; }
+        .del-btn { background: none; border: none; color: #94a3b8; cursor: pointer; font-size: 0.8rem; padding: 0.2rem 0.4rem; }
+        .del-btn:hover { color: #e11d48; }
+        .text-center { text-align: center; font-size: 0.75rem; color: #94a3b8; padding: 1rem 0; }
+        .date-badge { font-size: 0.75rem; background: #065f46; padding: 0.25rem 0.5rem; border-radius: 0.25rem; }
+    </style>
+
+    <!-- PWA Manifest & Service Worker Registration -->
     <link rel="manifest" href="/Bakhaar_app/manifest.json">
     <script>
       if ('serviceWorker' in navigator) {
         window.addEventListener('load', () => {
-          navigator.serviceWorker.register('/Bakhaar_app/sw.js')
-            .then(reg => {
-              // Check for updates automatically on load
-              reg.update();
-            })
-            .catch(err => console.log('SW registration failed: ', err));
+          navigator.serviceWorker.register('/Bakhaar_app/sw.js');
         });
       }
     </script>
 </head>
-<body class="bg-slate-100 text-slate-800 font-sans pb-12">
+<body>
 
     <!-- Header -->
-    <header class="bg-emerald-700 text-white p-4 shadow-md sticky top-0 z-50">
-        <div class="max-w-md mx-auto flex justify-between items-center">
-            <h1 class="text-xl font-bold">🛒 Xisaabta Bakhaarka</h1>
-            <span id="current-date" class="text-xs bg-emerald-800 px-2 py-1 rounded"></span>
+    <header>
+        <div class="max">
+            <h1 style="font-size: 1.15rem; font-weight: bold;">🛒 Xisaabta Bakhaarka</h1>
+            <span id="current-date" class="date-badge"></span>
         </div>
     </header>
 
-    <main class="max-w-md mx-auto p-4 space-y-6">
+    <main>
 
         <!-- Summary Cards -->
-        <div class="grid grid-cols-2 gap-4">
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs text-slate-500 font-medium">Iibka Maanta (Sales)</p>
-                <p id="total-sales" class="text-2xl font-bold text-emerald-600">0.00</p>
+        <div class="grid-2">
+            <div class="card">
+                <p class="label">Iibka Maanta (Sales)</p>
+                <p id="total-sales" class="sales-val">0.00</p>
             </div>
-            <div class="bg-white p-4 rounded-xl shadow-sm border border-slate-200">
-                <p class="text-xs text-slate-500 font-medium">Deynta Maqan (Debt)</p>
-                <p id="total-debt" class="text-2xl font-bold text-rose-600">0.00</p>
+            <div class="card">
+                <p class="label">Deynta Maqan (Debt)</p>
+                <p id="total-debt" class="debt-val">0.00</p>
             </div>
         </div>
 
         <!-- Quick Actions Form -->
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
-            <h2 class="font-semibold text-slate-700 border-b pb-2">Diiwaangelinta Wax Kala iibsiga/Deynta</h2>
+        <div class="card">
+            <h2>Diiwaangelinta Wax Kala iibsiga/Deynta</h2>
             
-            <form id="record-form" class="space-y-3">
+            <form id="record-form">
                 <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1">Nooca (Type)</label>
-                    <select id="type" class="w-full p-2.5 border rounded-lg bg-slate-50 text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                    <label>Nooca (Type)</label>
+                    <select id="type">
                         <option value="sale">Iib Caddaan ah (Sahal)</option>
                         <option value="debt">Deyn Cusub (New Credit/Debt)</option>
                     </select>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1">Magaca Macmiilka / Alaabta</label>
-                    <input type="text" id="description" placeholder="Tusaale: Sokor / Cali" required class="w-full p-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                    <label>Magaca Macmiilka / Alaabta</label>
+                    <input type="text" id="description" placeholder="Tusaale: Sokor / Cali" required>
                 </div>
 
                 <div>
-                    <label class="block text-xs font-medium text-slate-600 mb-1">Lacagta (USD ama Sh.So)</label>
-                    <input type="number" step="any" id="amount" placeholder="0.00" required class="w-full p-2.5 border rounded-lg text-sm focus:ring-2 focus:ring-emerald-500 outline-none">
+                    <label>Lacagta (USD ama Sh.So)</label>
+                    <input type="number" step="any" id="amount" placeholder="0.00" required>
                 </div>
 
-                <button type="submit" class="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-medium p-2.5 rounded-lg transition text-sm">
-                    Kaydi (Save)
-                </button>
+                <button type="submit" class="save-btn">Kaydi (Save)</button>
             </form>
         </div>
 
         <!-- Transaction Lists -->
-        <div class="bg-white p-5 rounded-xl shadow-sm border border-slate-200 space-y-4">
-            <div class="flex justify-between items-center border-b pb-2">
-                <h2 class="font-semibold text-slate-700">Diiwaanka Dhaqdhaqaaqa</h2>
-                <button onclick="clearData()" class="text-xs text-rose-500 hover:underline">Tirtir Wax walba</button>
-            </div>
+        <div class="card">
+            <h2>
+                <span>Diiwaanka Dhaqdhaqaaqa</span>
+                <button type="button" onclick="clearData()" class="clear-btn">Tirtir Wax walba</button>
+            </h2>
             
             <!-- Instant Search Input -->
-            <div>
-                <input type="text" id="search-input" placeholder="🔍 Raadi magaca macmiilka..." class="w-full p-2 border rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none">
+            <div style="margin-bottom: 0.75rem;">
+                <input type="text" id="search-input" placeholder="🔍 Raadi magaca macmiilka...">
             </div>
 
-            <div id="transactions-list" class="space-y-2 max-h-60 overflow-y-auto">
+            <div id="transactions-list" class="list-container">
                 <!-- Dynamic Items Go Here -->
-                <p class="text-xs text-slate-400 text-center py-4">Wali wax xisaab ah lama gelin maanta.</p>
+                <p class="text-center">Wali wax xisaab ah lama gelin maanta.</p>
             </div>
         </div>
 
@@ -99,7 +121,7 @@
         // Set Date
         document.getElementById('current-date').innerText = new Date().toLocaleDateString();
 
-        // State Management - Safely initialized
+        // State Management
         let transactions = JSON.parse(localStorage.getItem('bakhaar_transactions')) || [];
 
         const form = document.getElementById('record-form');
@@ -127,23 +149,23 @@
             );
 
             if (filteredTransactions.length === 0) {
-                listEl.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Lama helin wax u dhigma raadintaada.</p>`;
+                listEl.innerHTML = `<p class="text-center">Lama helin wax u dhigma raadintaada.</p>`;
             }
 
             filteredTransactions.slice().reverse().forEach((tx) => {
                 const originalIndex = transactions.indexOf(tx);
 
                 const item = document.createElement('div');
-                item.className = `flex justify-between items-center p-2.5 rounded-lg border text-sm ${tx.type === 'sale' ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`;
+                item.className = `tx-item ${tx.type === 'sale' ? 'tx-sale' : 'tx-debt'}`;
                 
                 item.innerHTML = `
                     <div>
-                        <p class="font-medium text-slate-800">${tx.description}</p>
-                        <span class="text-[10px] text-slate-500">${tx.time} • ${tx.type === 'sale' ? 'Iib' : 'Deyn'}</span>
+                        <p style="font-weight: 500; color: #1e293b;">${tx.description}</p>
+                        <span style="font-size: 10px; color: #64748b;">${tx.time} • ${tx.type === 'sale' ? 'Iib' : 'Deyn'}</span>
                     </div>
-                    <div class="flex items-center gap-2">
-                        <span class="font-bold ${tx.type === 'sale' ? 'text-emerald-600' : 'text-rose-600'}">$${parseFloat(tx.amount).toFixed(2)}</span>
-                        <button onclick="deleteTx(${originalIndex})" class="text-slate-400 hover:text-rose-600 text-xs">✕</button>
+                    <div style="display: flex; align-items: center; gap: 0.5rem;">
+                        <span style="font-weight: bold; color: ${tx.type === 'sale' ? '#059669' : '#e11d48'};">$${parseFloat(tx.amount).toFixed(2)}</span>
+                        <button type="button" onclick="deleteTx(${originalIndex})" class="del-btn">✕</button>
                     </div>
                 `;
                 listEl.appendChild(item);
