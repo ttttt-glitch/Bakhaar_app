@@ -76,6 +76,11 @@
                 <button onclick="clearData()" class="text-xs text-rose-500 hover:underline">Tirtir Wax walba</button>
             </div>
             
+            <!-- Instant Search Input -->
+            <div>
+                <input type="text" id="search-input" placeholder="🔍 Raadi magaca macmiilka..." class="w-full p-2 border rounded-lg text-sm bg-slate-50 focus:ring-2 focus:ring-emerald-500 outline-none">
+            </div>
+
             <div id="transactions-list" class="space-y-2 max-h-60 overflow-y-auto">
                 <!-- Dynamic Items Go Here -->
                 <p class="text-xs text-slate-400 text-center py-4">Wali wax xisaab ah lama gelin maanta.</p>
@@ -95,20 +100,33 @@
         const totalSalesEl = document.getElementById('total-sales');
         const totalDebtEl = document.getElementById('total-debt');
         const listEl = document.getElementById('transactions-list');
+        const searchInput = document.getElementById('search-input');
 
         function updateUI() {
             listEl.innerHTML = '';
             let salesTotal = 0;
             let debtTotal = 0;
 
-            if (transactions.length === 0) {
-                listEl.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Wali wax xisaab ah lama gelin.</p>`;
-            }
+            const searchTerm = searchInput.value.toLowerCase();
 
-            transactions.slice().reverse().forEach((tx, index) => {
-                const originalIndex = transactions.length - 1 - index;
+            // Calculate overall totals across all transactions
+            transactions.forEach(tx => {
                 if (tx.type === 'sale') salesTotal += parseFloat(tx.amount);
                 if (tx.type === 'debt') debtTotal += parseFloat(tx.amount);
+            });
+
+            // Filter transactions based on what the user types
+            const filteredTransactions = transactions.filter(tx => 
+                tx.description.toLowerCase().includes(searchTerm)
+            );
+
+            if (filteredTransactions.length === 0) {
+                listEl.innerHTML = `<p class="text-xs text-slate-400 text-center py-4">Lama helin wax u dhigma raadintaada.</p>`;
+            }
+
+            filteredTransactions.slice().reverse().forEach((tx, index) => {
+                const originalIndex = transactions.indexOf(tx);
+                if (tx.type === 'sale') /* already tallied */ 
 
                 const item = document.createElement('div');
                 item.className = `flex justify-between items-center p-2.5 rounded-lg border text-sm ${tx.type === 'sale' ? 'bg-emerald-50 border-emerald-100' : 'bg-rose-50 border-rose-100'}`;
@@ -140,6 +158,10 @@
 
             transactions.push({ type, description, amount, time });
             form.reset();
+            updateUI();
+        });
+
+        searchInput.addEventListener('input', () => {
             updateUI();
         });
 
