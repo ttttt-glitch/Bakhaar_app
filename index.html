@@ -145,7 +145,7 @@
 
             const searchTerm = searchInput.value.toLowerCase();
 
-            // Calculate overall totals dynamically
+            // Calculate overall totals dynamically (Debt payments count towards sales revenue)
             transactions.forEach(tx => {
                 const amt = parseFloat(tx.amount) || 0;
                 if (tx.type === 'sale') {
@@ -153,7 +153,8 @@
                 } else if (tx.type === 'debt') {
                     debtTotal += amt;
                 } else if (tx.type === 'payment') {
-                    debtTotal -= amt; // Subtract payments from total outstanding debt
+                    debtTotal -= amt; // Subtract payments from outstanding debt
+                    salesTotal += amt; // Add collected payments into total revenue stream
                 }
             });
             if (debtTotal < 0) debtTotal = 0;
