@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="google" content="notranslate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xisaabta Ganacsigaga - Sales & Debt Tracker</title>
+    <title>Xisaabta Ganacsigaaga - Sales & Debt Tracker</title>
     
     <!-- Inline Native Styles for 100% Offline Reliability -->
     <style>
@@ -55,7 +55,7 @@
     <!-- Header -->
     <header>
         <div class="max">
-            <h1 style="font-size: 1.15rem; font-weight: bold;">🛒 Xisaabta Bakhaarka</h1>
+            <h1 style="font-size: 1.15rem; font-weight: bold;">🛒 Xisaabta Ganacsigaaga</h1>
             <span id="current-date" class="date-badge"></span>
         </div>
     </header>
@@ -132,9 +132,10 @@
         const todayDateStr = new Date().toLocaleDateString();
         document.getElementById('current-date').innerText = todayDateStr;
 
-        // State Management
-        let transactions = JSON.parse(localStorage.getItem('bakhaar_transactions')) || [];
-        let archivedIndexes = JSON.parse(localStorage.getItem('bakhaar_archived')) || [];
+        // Structured State Management
+        let cashSales = JSON.parse(localStorage.getItem('ganacsi_cash')) || [];
+        let customers = JSON.parse(localStorage.getItem('ganacsi_customers')) || {};
+        let totalRevenue = parseFloat(localStorage.getItem('ganacsi_revenue')) || 0;
 
         const form = document.getElementById('record-form');
         const totalSalesEl = document.getElementById('total-sales');
@@ -142,136 +143,93 @@
         const listEl = document.getElementById('transactions-list');
         const searchInput = document.getElementById('search-input');
 
+        function saveData() {
+            localStorage.setItem('ganacsi_cash', JSON.stringify(cashSales));
+            localStorage.setItem('ganacsi_customers', JSON.stringify(customers));
+            localStorage.setItem('ganacsi_revenue', totalRevenue);
+        }
+
         function updateUI() {
             listEl.innerHTML = '';
-            let salesTotal = 0;
-            let debtTotal = 0;
-
             const searchTerm = searchInput.value.toLowerCase();
-            let persistentRevenue = parseFloat(localStorage.getItem('bakhaar_persistent_revenue')) || 0;
 
-            transactions.forEach((tx) => {
-                const amt = parseFloat(tx.amount) || 0;
-                if (tx.type === 'debt') {
-                    debtTotal += amt;
-                } else if (tx.type === 'payment') {
-                    debtTotal -= amt; 
-                }
-            });
-            if (debtTotal < 0) debtTotal = 0;
+            let calculatedDebtTotal = 0;
 
-            let activeSalesAndPayments = 0;
-            transactions.forEach(tx => {
-                const amt = parseFloat(tx.amount) || 0;
-                if (tx.type === 'sale' || tx.type === 'payment') {
-                    activeSalesAndPayments += amt;
-                }
-            });
-            salesTotal = persistentRevenue + activeSalesAndPayments;
-
-            let cashSales = transactions.filter((tx, idx) => tx.type === 'sale' && !archivedIndexes.includes(idx));
-            
-            let debtTransactions = [];
-            transactions.forEach((tx, idx) => {
-                if ((tx.type === 'debt' || tx.type === 'payment') && !archivedIndexes.includes(idx)) {
-                    debtTransactions.push({ ...tx, originalIndex: idx });
-                }
+            // Calculate active debts remaining across all customer accounts
+            Object.values(customers).forEach(cust => {
+                let initialDebt = cust.items.reduce((sum, item) => sum + item.amount, 0);
+                let totalPaid = cust.payments.reduce((sum, pay) => sum + pay.amount, 0);
+                let balance = initialDebt - totalPaid;
+                if (balance < 0) balance = 0;
+                calculatedDebtTotal += balance;
             });
 
-            // Group debts and payments strictly by customer name inside customer cards
-            let customerLedgers = {};
-            debtTransactions.forEach((tx) => {
-                let nameKey = (tx.customer || 'General').trim().toLowerCase();
-                if (!customerLedgers[nameKey]) {
-                    customerLedgers[nameKey] = {
-                        name: tx.customer || 'Macmiil',
-                        total: 0,
-                        items: []
-                    };
-                }
-                const amt = parseFloat(tx.amount) || 0;
-                if (tx.type === 'debt') {
-                    customerLedgers[nameKey].total += amt;
-                } else if (tx.type === 'payment') {
-                    customerLedgers[nameKey].total -= amt;
-                }
-                
-                customerLedgers[nameKey].items.push({ 
-                    type: tx.type,
-                    desc: tx.description, 
-                    amount: amt, 
-                    date: tx.date || todayDateStr,
-                    time: tx.time, 
-                    originalIndex: tx.originalIndex 
-                });
-            });
+            totalSalesEl.innerText = `$${totalRevenue.toFixed(2)}`;
+            totalDebtEl.innerText = `$${calculatedDebtTotal.toFixed(2)}`;
 
-            Object.keys(customerLedgers).forEach(key => {
-                if (customerLedgers[key].total < 0) customerLedgers[key].total = 0;
-            });
-
-            // Filter cash sales based on search
+            // 1. Render Standalone Cash Sales
             let filteredCash = cashSales.filter(tx => 
-                (tx.customer && tx.customer.toLowerCase().includes(searchTerm)) || 
-                (tx.description && tx.description.toLowerCase().includes(searchTerm))
+                tx.customer.toLowerCase().includes(searchTerm) || 
+                tx.description.toLowerCase().includes(searchTerm)
             );
 
-            // Render Standalone Cash Sales
             filteredCash.slice().reverse().forEach((tx) => {
-                const originalIndex = transactions.indexOf(tx);
                 const item = document.createElement('div');
                 item.className = 'sale-card';
                 item.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
-                            <p style="font-weight: 600; color: #065f46;">🛒 ${tx.customer || 'Kaash'}: ${tx.description}</p>
-                            <span style="font-size: 10px; color: #64748b;">${tx.date || todayDateStr} • ${tx.time} • Kaash</span>
+                            <p style="font-weight: 600; color: #065f46;">🛒 ${tx.customer}: ${tx.description}</p>
+                            <span style="font-size: 10px; color: #64748b;">${tx.date} • ${tx.time} • Kaash</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-weight: bold; color: #059669;">$${parseFloat(tx.amount).toFixed(2)}</span>
-                            <button type="button" onclick="deleteTx(${originalIndex})" class="del-btn">✕</button>
+                            <span style="font-weight: bold; color: #059669;">$${tx.amount.toFixed(2)}</span>
+                            <button type="button" onclick="deleteCashSale('${tx.id}')" class="del-btn">✕</button>
                         </div>
                     </div>
                 `;
                 listEl.appendChild(item);
             });
 
-            // Render Customer Ledgers (Debts and Payments combined inside the card)
-            Object.keys(customerLedgers).forEach(key => {
-                let cust = customerLedgers[key];
+            // 2. Render Customer Ledger Cards
+            Object.keys(customers).forEach(key => {
+                let cust = customers[key];
                 if (searchTerm && !cust.name.toLowerCase().includes(searchTerm)) return;
+
+                let initialDebt = cust.items.reduce((sum, item) => sum + item.amount, 0);
+                let totalPaid = cust.payments.reduce((sum, pay) => sum + pay.amount, 0);
+                let currentBalance = initialDebt - totalPaid;
+                if (currentBalance < 0) currentBalance = 0;
 
                 const custCard = document.createElement('div');
                 custCard.className = 'customer-card';
                 
                 let itemsHtml = '';
-                let indexesToClear = [];
 
-                cust.items.slice().reverse().forEach(sub => {
-                    indexesToClear.push(sub.originalIndex);
-                    if (sub.type === 'payment') {
-                        // Render payment directly inside the customer debt card as requested
-                        itemsHtml += `
-                            <div class="payment-row">
-                                <span>✅ Bixin: ${sub.desc} — <b>$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${sub.date} • ${sub.time})</span></span>
-                                <button type="button" onclick="deleteTx(${sub.originalIndex})" class="del-btn">✕ Tirtir</button>
-                            </div>
-                        `;
-                    } else {
-                        itemsHtml += `
-                            <div class="item-row">
-                                <span>${sub.desc} — <b>$${sub.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${sub.date} • ${sub.time})</span></span>
-                                <button type="button" onclick="deleteTx(${sub.originalIndex})" class="del-btn">✕ Tirtir</button>
-                            </div>
-                        `;
-                    }
+                // Render Debt Line Items
+                cust.items.forEach(item => {
+                    itemsHtml += `
+                        <div class="item-row">
+                            <span>${item.desc} — <b>$${item.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${item.date} • ${item.time})</span></span>
+                            <button type="button" onclick="deleteCustomerItem('${key}', 'item', '${item.id}')" class="del-btn">✕ Tirtir</button>
+                        </div>
+                    `;
+                });
+
+                // Render Payment Confirmation Rows inside the same card
+                cust.payments.forEach(pay => {
+                    itemsHtml += `
+                        <div class="payment-row">
+                            <span>✅ Bixin: ${pay.desc} — <b>$${pay.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${pay.date} • ${pay.time})</span></span>
+                            <button type="button" onclick="deleteCustomerItem('${key}', 'payment', '${pay.id}')" class="del-btn">✕ Tirtir</button>
+                        </div>
+                    `;
                 });
 
                 let settleButtonHtml = '';
-                // Persistent check: Appears anytime debt total reaches 0 and there are items to archive
-                if (cust.total === 0 && cust.items.length > 0) {
-                    const indexesStr = JSON.stringify(indexesToClear);
-                    settleButtonHtml = `<button type="button" onclick='archiveCustomerItems(${indexesStr})' class="settle-btn">Sifee Deynta ✓</button>`;
+                // Persistent Settle Button appears anytime balance hits 0 and there are items recorded
+                if (currentBalance === 0 && (cust.items.length > 0 || cust.payments.length > 0)) {
+                    settleButtonHtml = `<button type="button" onclick="settleCustomer('${key}')" class="settle-btn">Sifee Deynta ✓</button>`;
                 }
 
                 custCard.innerHTML = `
@@ -281,7 +239,7 @@
                             <span style="font-size: 10px; color: #64748b;">Wadarta Deynta Maqan</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-weight: bold; font-size: 1.1rem; color: #e11d48;">$${cust.total.toFixed(2)}</span>
+                            <span style="font-weight: bold; font-size: 1.1rem; color: #e11d48;">$${currentBalance.toFixed(2)}</span>
                             ${settleButtonHtml}
                         </div>
                     </div>
@@ -294,22 +252,37 @@
                 listEl.innerHTML = `<p class="text-center">Wali wax xisaab ah lama gelin ama waa la sifeeyay.</p>`;
             }
 
-            totalSalesEl.innerText = `$${salesTotal.toFixed(2)}`;
-            totalDebtEl.innerText = `$${debtTotal.toFixed(2)}`;
-            localStorage.setItem('bakhaar_transactions', JSON.stringify(transactions));
-            localStorage.setItem('bakhaar_archived', JSON.stringify(archivedIndexes));
+            saveData();
         }
 
         form.addEventListener('submit', (e) => {
             e.preventDefault();
             const type = document.getElementById('type').value;
-            const customer = document.getElementById('customer').value.trim();
+            const customerName = document.getElementById('customer').value.trim();
             const description = document.getElementById('description').value.trim();
-            const amount = document.getElementById('amount').value;
+            const amount = parseFloat(document.getElementById('amount').value) || 0;
             const date = new Date().toLocaleDateString();
             const time = new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const id = '_' + Math.random().toString(36).substr(2, 9);
 
-            transactions.push({ type, customer, description, amount, date, time });
+            if (type === 'sale') {
+                cashSales.push({ id, customer: customerName, description, amount, date, time });
+                totalRevenue += amount; // Increases sales revenue stream
+            } else if (type === 'debt') {
+                let key = customerName.toLowerCase();
+                if (!customers[key]) {
+                    customers[key] = { name: customerName, items: [], payments: [] };
+                }
+                customers[key].items.push({ id, desc: description, amount, date, time });
+            } else if (type === 'payment') {
+                let key = customerName.toLowerCase();
+                if (!customers[key]) {
+                    customers[key] = { name: customerName, items: [], payments: [] };
+                }
+                customers[key].payments.push({ id, desc: description, amount, date, time });
+                totalRevenue += amount; // Collected debt payments also count towards total sales revenue!
+            }
+
             form.reset();
             updateUI();
         });
@@ -318,35 +291,53 @@
             updateUI();
         });
 
-        function deleteTx(index) {
-            let txToDelete = transactions[index];
-            if (txToDelete && (txToDelete.type === 'sale' || txToDelete.type === 'payment')) {
-                let currentPersistent = parseFloat(localStorage.getItem('bakhaar_persistent_revenue')) || 0;
-                localStorage.setItem('bakhaar_persistent_revenue', currentPersistent + parseFloat(txToDelete.amount || 0));
+        function deleteCashSale(id) {
+            let index = cashSales.findIndex(tx => tx.id === id);
+            if (index !== -1) {
+                let removed = cashSales.splice(index, 1)[0];
+                totalRevenue -= removed.amount; // Safely deducts if deleted
+                if (totalRevenue < 0) totalRevenue = 0;
+                updateUI();
+            }
+        }
+
+        function deleteCustomerItem(customerKey, type, id) {
+            let cust = customers[customerKey];
+            if (!cust) return;
+
+            if (type === 'item') {
+                let idx = cust.items.findIndex(i => i.id === id);
+                if (idx !== -1) cust.items.splice(idx, 1);
+            } else if (type === 'payment') {
+                let idx = cust.payments.findIndex(p => p.id === id);
+                if (idx !== -1) {
+                    let removedPay = cust.payments.splice(idx, 1)[0];
+                    totalRevenue -= removedPay.amount; // Deducts from revenue if payment log is deleted
+                    if (totalRevenue < 0) totalRevenue = 0;
+                }
             }
 
-            transactions.splice(index, 1);
-            archivedIndexes = archivedIndexes.map(i => i > index ? i - 1 : i).filter(i => i !== index);
+            // Clean up customer object if empty
+            if (cust.items.length === 0 && cust.payments.length === 0) {
+                delete customers[customerKey];
+            }
+
             updateUI();
         }
 
-        function archiveCustomerItems(indexes) {
-            if(confirm("Ma hubtaa inaad sifeyso deyntan oo aad ka saarto liiska? (Lacagtu iibka ayay ku jirtaa)")) {
-                indexes.forEach(idx => {
-                    if (!archivedIndexes.includes(idx)) {
-                        archivedIndexes.push(idx);
-                    }
-                });
+        function settleCustomer(customerKey) {
+            if(confirm("Ma hubtaa inaad sifeyso deyntan oo aad ka saarto liiska?")) {
+                delete customers[customerKey];
                 updateUI();
             }
         }
 
         function clearData() {
             if(confirm("Ma hubtaa inaad tirtirto dhammaan xisaabta?")) {
-                transactions = [];
-                archivedIndexes = [];
-                localStorage.removeItem('bakhaar_archived');
-                localStorage.removeItem('bakhaar_persistent_revenue');
+                cashSales = [];
+                customers = {};
+                totalRevenue = 0;
+                localStorage.clear();
                 updateUI();
             }
         }
