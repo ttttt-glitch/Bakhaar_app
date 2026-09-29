@@ -40,6 +40,7 @@
         .payment-row { border-left-color: #34d399; background: #f0fdf4; padding: 0.3rem 0.5rem; border-radius: 0.25rem; margin-top: 0.3rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #065f46; }
         .hint { font-size: 0.7rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.4rem; padding: 0.4rem 0.5rem; }
         .hint[hidden] { display: none; }
+        .partial-note { font-size: 10px; color: #b45309; display: block; margin-top: 0.15rem; }
     </style>
 
     <!-- PWA Manifest, Icons & Service Worker Registration -->
@@ -162,12 +163,18 @@
 
         // Work in whole cents to avoid floating point errors
         function toCents(n) {
-            return Math.round(n * 100);
+            return Math.round((Number(n) || 0) * 100);
+        }
+
+        function money(cents) {
+            return '$' + (cents / 100).toFixed(2);
         }
 
         // ---------- State ----------
         // cashSales:    [{ id, customer, description, amount, date, time }]
-        // customers:    { "khadar": { name, items: [debts], payments: [payments] } }
+        // customers:    { "khadar": { name, items: [ { id, desc, amount, paid, date, time, paidDate, paidTime } ] } }
+        //               Each debt item carries its own paid amount. A fully paid item
+        //               is drawn as a "Bixin" card. There is no separate payments list.
         // totalRevenue: persistent number = cash sales + collected debt payments
         let cashSales = loadJSON('ganacsi_cash', []);
         let customers = loadJSON('ganacsi_customers', {});
@@ -191,30 +198,69 @@
             localStorage.setItem('ganacsi_revenue', String(totalRevenue));
         }
 
-        function getBalance(cust) {
-            const debt = cust.items.reduce((sum, i) => sum + i.amount, 0);
-            const paid = cust.payments.reduce((sum, p) => sum + p.amount, 0);
-            return Math.max(debt - paid, 0);
+        // ---------- Debt item helpers ----------
+        function remainingCents(item) {
+            return Math.max(toCents(item.amount) - toCents(item.paid), 0);
         }
 
-        // Returns this customer's debt items that are still unpaid.
-        // Debts with the same description are grouped; payments with that same
-        // description reduce it. Each result: { desc, cents } (cents = still owed)
-        function getUnpaidItems(cust) {
+        // Customer balance = sum of what is still unpaid on each item
+        function getBalanceCents(cust) {
+            return cust.items.reduce((sum, i) => sum + remainingCents(i), 0);
+        }
+
+        // Unpaid items grouped by description: [{ key, desc, cents }]
+        function getUnpaidGroups(cust) {
             const groups = {};
-
             cust.items.forEach(item => {
+                const rem = remainingCents(item);
+                if (rem <= 0) return;
                 const k = normalize(item.desc);
-                if (!groups[k]) groups[k] = { desc: item.desc, cents: 0 };
-                groups[k].cents += toCents(item.amount);
+                if (!groups[k]) groups[k] = { key: k, desc: item.desc, cents: 0 };
+                groups[k].cents += rem;
             });
+            return Object.values(groups);
+        }
 
-            cust.payments.forEach(pay => {
-                const k = normalize(pay.desc);
-                if (groups[k]) groups[k].cents -= toCents(pay.amount);
+        // Applies a payment to a customer's items, oldest first.
+        // descKey = normalized description to match, or null to match any unpaid item.
+        // Returns the cents that could not be applied.
+        function applyToItems(cust, descKey, cents, date, time) {
+            for (const item of cust.items) {
+                if (cents <= 0) break;
+                if (descKey !== null && normalize(item.desc) !== descKey) continue;
+                const rem = remainingCents(item);
+                if (rem <= 0) continue;
+                const take = Math.min(rem, cents);
+                item.paid = (toCents(item.paid) + take) / 100;
+                item.paidDate = date;
+                item.paidTime = time;
+                cents -= take;
+            }
+            return cents;
+        }
+
+        // ---------- One-time migration from the old structure ----------
+        // Old data kept a separate payments list. Convert each old payment into
+        // paid amounts on the matching debt items. Revenue is never touched.
+        function migrateCustomers() {
+            let changed = false;
+            Object.values(customers).forEach(cust => {
+                if (!Array.isArray(cust.items)) cust.items = [];
+                cust.items.forEach(i => {
+                    if (typeof i.paid !== 'number') i.paid = 0;
+                });
+
+                if (Array.isArray(cust.payments)) {
+                    cust.payments.forEach(p => {
+                        let left = toCents(p.amount);
+                        left = applyToItems(cust, normalize(p.desc), left, p.date, p.time);
+                        if (left > 0) applyToItems(cust, null, left, p.date, p.time);
+                    });
+                    delete cust.payments;
+                    changed = true;
+                }
             });
-
-            return Object.values(groups).filter(g => g.cents > 0);
+            if (changed) saveData();
         }
 
         // Fills the suggestion list with the typed customer's unpaid items
@@ -227,10 +273,10 @@
             const cust = customers[normalize(customerEl.value)];
             if (!cust) return;
 
-            getUnpaidItems(cust).forEach(u => {
+            getUnpaidGroups(cust).forEach(g => {
                 const opt = document.createElement('option');
-                opt.value = u.desc;
-                opt.label = `$${(u.cents / 100).toFixed(2)}`;
+                opt.value = g.desc;
+                opt.label = money(g.cents);
                 datalistEl.appendChild(opt);
             });
         }
@@ -241,11 +287,11 @@
             const searchTerm = searchInput.value.toLowerCase();
 
             // Total outstanding debt across all active customer cards
-            let totalDebt = 0;
-            Object.values(customers).forEach(cust => { totalDebt += getBalance(cust); });
+            let totalDebtCents = 0;
+            Object.values(customers).forEach(cust => { totalDebtCents += getBalanceCents(cust); });
 
             totalSalesEl.innerText = `$${totalRevenue.toFixed(2)}`;
-            totalDebtEl.innerText = `$${totalDebt.toFixed(2)}`;
+            totalDebtEl.innerText = money(totalDebtCents);
 
             // 1. Standalone cash sales
             const filteredCash = cashSales.filter(tx =>
@@ -271,38 +317,45 @@
                 listEl.appendChild(el);
             });
 
-            // 2. Customer ledger cards (debts + embedded payments)
+            // 2. Customer ledger cards
             Object.keys(customers).forEach(key => {
                 const cust = customers[key];
                 if (searchTerm && !cust.name.toLowerCase().includes(searchTerm)) return;
 
-                const balance = getBalance(cust);
+                const balanceCents = getBalanceCents(cust);
                 const safeKey = escapeHtml(key);
                 let rowsHtml = '';
 
-                // Debt line items
                 cust.items.forEach(item => {
-                    rowsHtml += `
-                        <div class="item-row">
-                            <span>${escapeHtml(item.desc)} — <b>$${item.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${escapeHtml(item.date)} • ${escapeHtml(item.time)})</span></span>
-                            <button type="button" class="del-btn" data-action="delete-item" data-key="${safeKey}" data-id="${escapeHtml(item.id)}">✕ Tirtir</button>
-                        </div>
-                    `;
-                });
+                    const rem = remainingCents(item);
+                    const paidC = toCents(item.paid);
+                    const delBtn = `<button type="button" class="del-btn" data-action="delete-item" data-key="${safeKey}" data-id="${escapeHtml(item.id)}">✕ Tirtir</button>`;
 
-                // Payment log rows, embedded inside the same customer card
-                cust.payments.forEach(pay => {
-                    rowsHtml += `
-                        <div class="payment-row">
-                            <span>✅ Bixin: ${escapeHtml(pay.desc)} — <b>$${pay.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${escapeHtml(pay.date)} • ${escapeHtml(pay.time)})</span></span>
-                            <button type="button" class="del-btn" data-action="delete-payment" data-key="${safeKey}" data-id="${escapeHtml(pay.id)}">✕ Tirtir</button>
-                        </div>
-                    `;
+                    if (rem === 0) {
+                        // Fully paid: the debt card itself becomes the Bixin card
+                        rowsHtml += `
+                            <div class="payment-row">
+                                <span>✅ Bixin: ${escapeHtml(item.desc)} — <b>$${item.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${escapeHtml(item.paidDate || item.date)} • ${escapeHtml(item.paidTime || item.time)})</span></span>
+                                ${delBtn}
+                            </div>
+                        `;
+                    } else {
+                        // Unpaid or partly paid: still a debt card
+                        const partial = paidC > 0
+                            ? `<span class="partial-note">La bixiyay ${money(paidC)} • Hadhay ${money(rem)}</span>`
+                            : '';
+                        rowsHtml += `
+                            <div class="item-row">
+                                <span>${escapeHtml(item.desc)} — <b>$${item.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${escapeHtml(item.date)} • ${escapeHtml(item.time)})</span>${partial}</span>
+                                ${delBtn}
+                            </div>
+                        `;
+                    }
                 });
 
                 // Settle button: shows whenever balance is $0.00 and the card has records
                 let settleHtml = '';
-                if (balance === 0 && (cust.items.length > 0 || cust.payments.length > 0)) {
+                if (balanceCents === 0 && cust.items.length > 0) {
                     settleHtml = `<button type="button" class="settle-btn" data-action="settle" data-key="${safeKey}">Sifee Deynta ✓</button>`;
                 }
 
@@ -315,7 +368,7 @@
                             <span style="font-size: 10px; color: #64748b;">Wadarta Deynta Maqan</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
-                            <span style="font-weight: bold; font-size: 1.1rem; color: #e11d48;">$${balance.toFixed(2)}</span>
+                            <span style="font-weight: bold; font-size: 1.1rem; color: #e11d48;">${money(balanceCents)}</span>
                             ${settleHtml}
                         </div>
                     </div>
@@ -354,27 +407,27 @@
 
             } else if (type === 'debt') {
                 if (!customers[key]) {
-                    customers[key] = { name: customerName, items: [], payments: [] };
+                    customers[key] = { name: customerName, items: [] };
                 }
-                customers[key].items.push({ id, desc: description, amount, date, time });
+                customers[key].items.push({ id, desc: description, amount, paid: 0, date, time });
 
             } else if (type === 'payment') {
                 // ---- STRICT PAYMENT VALIDATION ----
                 const cust = customers[key];
 
-                // 1. Customer must exist (and no empty card is created on failure)
+                // 1. Customer must exist (no empty card is created on failure)
                 if (!cust) {
                     alert('⚠️ Digniin!\n\nMacmiilkan "' + customerName + '" deyn ma laha.\nBixinta lama kaydin.');
                     return;
                 }
 
                 // 2. Description must match one of this customer's UNPAID debt items
-                const unpaid = getUnpaidItems(cust);
-                const match = unpaid.find(u => normalize(u.desc) === normalize(description));
+                const groups = getUnpaidGroups(cust);
+                const match = groups.find(g => g.key === normalize(description));
 
                 if (!match) {
-                    const list = unpaid.length
-                        ? '\n\nDeymaha furan ee ' + cust.name + ':\n• ' + unpaid.map(u => u.desc + ' ($' + (u.cents / 100).toFixed(2) + ')').join('\n• ')
+                    const list = groups.length
+                        ? '\n\nDeymaha furan ee ' + cust.name + ':\n• ' + groups.map(g => g.desc + ' (' + money(g.cents) + ')').join('\n• ')
                         : '\n\nMacmiilkan deyn furan ma lahan.';
                     alert('⚠️ Digniin!\n\n"' + description + '" kuma jirto deymaha furan ee ' + cust.name + '.\nBixinta lama kaydin.' + list);
                     return;
@@ -382,12 +435,13 @@
 
                 // 3. Payment cannot be more than what is still owed on that item
                 if (toCents(amount) > match.cents) {
-                    alert('⚠️ Digniin!\n\nLacagta aad gelisay ($' + amount.toFixed(2) + ') way ka badan tahay deynta hadhay ($' + (match.cents / 100).toFixed(2) + ') ee "' + match.desc + '".\nBixinta lama kaydin.');
+                    alert('⚠️ Digniin!\n\nLacagta aad gelisay ($' + amount.toFixed(2) + ') way ka badan tahay deynta hadhay (' + money(match.cents) + ') ee "' + match.desc + '".\nBixinta lama kaydin.');
                     return;
                 }
                 // ---- END VALIDATION ----
 
-                cust.payments.push({ id, desc: match.desc, amount, date, time });
+                // The matching debt card itself becomes paid (no separate payment card)
+                applyToItems(cust, match.key, toCents(amount), date, time);
                 totalRevenue += amount; // collected debt counts as revenue
             }
 
@@ -410,20 +464,39 @@
             }
         }
 
-        function deleteCustomerItem(key, kind, id) {
+        // Deleting a debt/Bixin card:
+        //  - Unpaid or partly paid: asks for confirmation. Only the still-unpaid part
+        //    leaves the balance. Revenue is never changed.
+        //  - Fully paid (Bixin): asks for confirmation. Nothing changes in balance
+        //    or revenue, because it was already counted when paid.
+        function deleteCustomerItem(key, id) {
             const cust = customers[key];
             if (!cust) return;
 
-            if (kind === 'item') {
-                const idx = cust.items.findIndex(i => i.id === id);
-                if (idx !== -1) cust.items.splice(idx, 1);
-            } else if (kind === 'payment') {
-                // Removes the log row only. Revenue is NEVER reduced here.
-                const idx = cust.payments.findIndex(p => p.id === id);
-                if (idx !== -1) cust.payments.splice(idx, 1);
+            const idx = cust.items.findIndex(i => i.id === id);
+            if (idx === -1) return;
+
+            const item = cust.items[idx];
+            const rem = remainingCents(item);
+
+            if (rem > 0) {
+                const ok = confirm(
+                    '⚠️ Digniin!\n\nDeyntan weli lama bixin:\n"' + item.desc + '" — ' + money(rem) +
+                    '\n\nHaddii aad tirtirto, waxay ka baaba\'aysaa deynta ' + cust.name + '.\n\nMa hubtaa inaad tirtirto?'
+                );
+                if (!ok) return;
+            } else {
+                const ok = confirm(
+                    'Bixintan waa la sifeeyay:\n"' + item.desc + '" — ' + money(toCents(item.amount)) +
+                    '\n\nTirtirkeedu ma beddelayo deynta iyo iibka guud.\n\nMa hubtaa inaad tirtirto diiwaankan?'
+                );
+                if (!ok) return;
             }
 
-            if (cust.items.length === 0 && cust.payments.length === 0) {
+            // Removes the card only. Revenue is NEVER changed here.
+            cust.items.splice(idx, 1);
+
+            if (cust.items.length === 0) {
                 delete customers[key];
             }
             updateUI();
@@ -456,13 +529,14 @@
             const { action, id, key } = btn.dataset;
 
             if (action === 'delete-cash') deleteCashSale(id);
-            else if (action === 'delete-item') deleteCustomerItem(key, 'item', id);
-            else if (action === 'delete-payment') deleteCustomerItem(key, 'payment', id);
+            else if (action === 'delete-item') deleteCustomerItem(key, id);
             else if (action === 'settle') settleCustomer(key);
         });
 
         document.getElementById('clear-all-btn').addEventListener('click', clearData);
 
+        // ---------- Start ----------
+        migrateCustomers();
         updateUI();
     </script>
 </body>
