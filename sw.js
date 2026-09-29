@@ -1,15 +1,26 @@
 // Service Worker for Xisaabta Ganacsigaaga
-const CACHE_NAME = 'bakhaar-cache-v4';
-const ASSETS_TO_CACHE = [
+const CACHE_NAME = 'bakhaar-cache-v6';
+
+// Must exist or the app will not install offline
+const CORE_ASSETS = [
   '/Bakhaar_app/',
   '/Bakhaar_app/index.html',
   '/Bakhaar_app/manifest.json'
 ];
 
+// Cached separately so a missing icon can never break the install
+const OPTIONAL_ASSETS = [
+  '/Bakhaar_app/icon-192.png'
+];
+
 self.addEventListener('install', (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
-      return cache.addAll(ASSETS_TO_CACHE);
+      return cache.addAll(CORE_ASSETS).then(() => {
+        return Promise.all(
+          OPTIONAL_ASSETS.map((url) => cache.add(url).catch(() => {}))
+        );
+      });
     })
   );
   self.skipWaiting();
