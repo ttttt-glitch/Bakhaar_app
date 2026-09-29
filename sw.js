@@ -1,5 +1,5 @@
-// Service Worker for Xisaabta Bakhaarka
-const CACHE_NAME = 'bakhaar-cache-v3';
+// Service Worker for Xisaabta Ganacsigaaga
+const CACHE_NAME = 'bakhaar-cache-v4';
 const ASSETS_TO_CACHE = [
   '/Bakhaar_app/',
   '/Bakhaar_app/index.html',
