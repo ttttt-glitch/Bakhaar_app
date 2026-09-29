@@ -23,12 +23,14 @@
         label { display: block; font-size: 0.75rem; font-weight: 500; color: #475569; margin-bottom: 0.25rem; }
         input, select { width: 100%; padding: 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: #f8fafc; }
         input:focus, select:focus { border-color: #059669; box-shadow: 0 0 0 2px rgba(5, 150, 105, 0.2); }
+        input:disabled, select:disabled { background: #e2e8f0; color: #94a3b8; cursor: not-allowed; }
         button.save-btn { width: 100%; background: #059669; color: white; border: none; font-weight: 500; padding: 0.65rem; border-radius: 0.5rem; cursor: pointer; font-size: 0.875rem; transition: background 0.2s; }
         button.save-btn:hover { background: #047857; }
+        button.save-btn:disabled { background: #94a3b8; cursor: not-allowed; }
         .list-container { max-height: 22rem; overflow-y: auto; display: flex; flex-direction: column; gap: 0.75rem; }
         .customer-card { background: #fff1f2; border: 1px solid #fecdd3; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; }
         .sale-card { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; }
-        .clear-btn { font-size: 0.75rem; color: #e11d48; background: none; border: none; cursor: pointer; text-decoration: underline; }
+        .clear-btn { font-size: 0.75rem; color: #e11d48; background: none; border: none; cursor: pointer; text-decoration: underline; margin-top: 0.4rem; padding: 0; }
         .settle-btn { font-size: 0.75rem; color: white; background: #059669; border: none; cursor: pointer; padding: 0.3rem 0.6rem; border-radius: 0.25rem; font-weight: 600; animation: pulse 1.5s infinite; }
         @keyframes pulse { 0% { opacity: 1; } 50% { opacity: 0.7; } 100% { opacity: 1; } }
         .settle-btn:hover { background: #047857; }
@@ -41,6 +43,23 @@
         .hint { font-size: 0.7rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.4rem; padding: 0.4rem 0.5rem; }
         .hint[hidden] { display: none; }
         .partial-note { font-size: 10px; color: #b45309; display: block; margin-top: 0.15rem; }
+
+        /* ----- Subscription status strip ----- */
+        .sub-status { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
+        .sub-status.warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
+        .sub-status.expired { background: #fff1f2; border-color: #fecdd3; color: #9f1239; }
+        .sub-status.vip { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+        .phone-btn { flex-shrink: 0; font-size: 0.7rem; background: white; border: 1px solid currentColor; color: inherit; border-radius: 0.4rem; padding: 0.25rem 0.5rem; cursor: pointer; }
+
+        /* ----- Expired banner + activation box ----- */
+        .expired-banner { background: #fff1f2; border: 2px solid #e11d48; border-radius: 0.6rem; padding: 0.85rem; margin-bottom: 0.75rem; }
+        .expired-banner .t { font-weight: 700; color: #9f1239; font-size: 0.95rem; margin-bottom: 0.3rem; }
+        .expired-banner .d { font-size: 0.75rem; color: #7f1d1d; line-height: 1.4; margin-bottom: 0.6rem; }
+        .license-row { display: flex; gap: 0.5rem; }
+        .license-row input { flex: 1; width: auto; min-width: 0; text-transform: uppercase; }
+        .activate-btn { background: #e11d48; color: white; border: none; border-radius: 0.5rem; padding: 0 1rem; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
+        .activate-btn:hover { background: #be123c; }
+        .license-msg { font-size: 0.75rem; color: #be123c; margin-top: 0.5rem; min-height: 1em; }
     </style>
 
     <!-- PWA Manifest, Icons & Service Worker Registration -->
@@ -67,15 +86,20 @@
 
     <main>
 
-        <!-- Summary Cards -->
+        <!-- Subscription status strip -->
+        <div id="sub-status" class="sub-status"></div>
+
+        <!-- Summary Cards (each has its own separate delete button) -->
         <div class="grid-2">
             <div class="card">
                 <p class="label">Iibka Guud (Total Sales)</p>
                 <p id="total-sales" class="sales-val">$0.00</p>
+                <button type="button" id="clear-sales-btn" class="clear-btn">Tirtir Iibka</button>
             </div>
             <div class="card">
                 <p class="label">Deynta Maqan (Total Debt)</p>
                 <p id="total-debt" class="debt-val">$0.00</p>
+                <button type="button" id="clear-debt-btn" class="clear-btn">Tirtir Deynta</button>
             </div>
         </div>
 
@@ -110,7 +134,7 @@
                     <input type="number" step="any" min="0.01" id="amount" placeholder="0.00" required>
                 </div>
 
-                <button type="submit" class="save-btn">Kaydi (Save)</button>
+                <button type="submit" class="save-btn" id="save-btn">Kaydi (Save)</button>
             </form>
         </div>
 
@@ -118,8 +142,10 @@
         <div class="card">
             <h2>
                 <span>Diiwaanka Dhaqdhaqaaqa</span>
-                <button type="button" id="clear-all-btn" class="clear-btn">Tirtir Wax walba</button>
             </h2>
+
+            <!-- Expired warning + offline activation box (filled by script when expired) -->
+            <div id="sub-banner"></div>
 
             <!-- Instant Search Input -->
             <div style="margin-bottom: 0.75rem;">
@@ -136,6 +162,230 @@
     <script>
         // ---------- Header date ----------
         document.getElementById('current-date').innerText = new Date().toLocaleDateString();
+
+        // =====================================================================
+        //  SUBSCRIPTION / LICENSE SYSTEM (offline, no backend)
+        // =====================================================================
+
+        // VIP devices: these numbers are never locked out. Edit this list.
+        const vipDevices = ["907407882"];
+
+        // For testing only: default expiry used when none is saved yet (format "YYYY-MM-DD").
+        // Leave as null to default to the last day of the current month.
+        const DEFAULT_EXPIRY_OVERRIDE = null;
+
+        const SUB_DAYS = 30;
+        const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
+        const LS_EXPIRY = 'ganacsi_sub_expiry';
+        const LS_PHONE = 'ganacsi_phone';
+        const LS_USED_KEYS = 'ganacsi_used_keys';
+        const LS_LAST_SEEN = 'ganacsi_last_seen';
+
+        function pad2(n) { return String(n).padStart(2, '0'); }
+
+        // Local date as YYYY-MM-DD
+        function toISODate(d) {
+            return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+        }
+
+        // "YYYY-MM-DD" -> Date at the very end of that day (local time)
+        function endOfDay(iso) {
+            const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
+            if (!m) return null;
+            const d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]), 23, 59, 59, 999);
+            return isNaN(d.getTime()) ? null : d;
+        }
+
+        function digitsOnly(s) { return String(s || '').replace(/\D/g, ''); }
+
+        // Current time, protected against setting the phone clock backwards.
+        // The latest date the app has ever seen is remembered.
+        function getTrustedNow() {
+            const real = new Date();
+            let now = real;
+            const seen = localStorage.getItem(LS_LAST_SEEN);
+            if (seen) {
+                const ls = new Date(seen);
+                if (!isNaN(ls.getTime()) && ls > real) now = ls;
+            }
+            localStorage.setItem(LS_LAST_SEEN, now.toISOString());
+            return now;
+        }
+
+        // Reads the saved expiry. If none, saves a default and returns it.
+        function getExpiryDate(now) {
+            let iso = localStorage.getItem(LS_EXPIRY);
+            let d = iso ? endOfDay(iso) : null;
+            if (!d) {
+                if (DEFAULT_EXPIRY_OVERRIDE && endOfDay(DEFAULT_EXPIRY_OVERRIDE)) {
+                    iso = DEFAULT_EXPIRY_OVERRIDE;
+                } else {
+                    // Last day of the current month
+                    iso = toISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
+                }
+                localStorage.setItem(LS_EXPIRY, iso);
+                d = endOfDay(iso);
+            }
+            return d;
+        }
+
+        function isVipUser() {
+            const phone = digitsOnly(localStorage.getItem(LS_PHONE));
+            if (!phone) return false;
+            return vipDevices.some(v => digitsOnly(v) === phone);
+        }
+
+        const nowDate = getTrustedNow();
+        const expiryDate = getExpiryDate(nowDate);
+        const isVip = isVipUser();
+        const subscriptionActive = (nowDate <= expiryDate || isVip);
+
+        // Parses "GANACSI-NOV2026" (any capitals / spacing). Returns null if invalid.
+        function parseLicenseKey(raw) {
+            const cleaned = String(raw).trim().toUpperCase().replace(/\s+/g, '');
+            const m = /^GANACSI-([A-Z]{3})(\d{4})$/.exec(cleaned);
+            if (!m) return null;
+            const monthIndex = MONTHS.indexOf(m[1]);
+            if (monthIndex === -1) return null;
+            return { normalized: 'GANACSI-' + m[1] + m[2], monthIndex, year: Number(m[2]) };
+        }
+
+        function setLicenseMsg(text) {
+            const el = document.getElementById('license-msg');
+            if (el) el.textContent = text;
+        }
+
+        // Validates the typed license key (or a VIP number) and activates.
+        function verifyAndActivateKey() {
+            const input = document.getElementById('license-input');
+            if (!input) return;
+            const raw = input.value.trim();
+            if (!raw) { setLicenseMsg('Fadlan geli furaha.'); return; }
+
+            // A VIP phone number typed here unlocks the device permanently
+            const digits = digitsOnly(raw);
+            if (digits.length >= 7 && /^[\d\s+\-]+$/.test(raw)) {
+                if (vipDevices.some(v => digitsOnly(v) === digits)) {
+                    localStorage.setItem(LS_PHONE, digits);
+                    alert('⭐ Lambarka VIP waa la aqbalay. App-ku wuu furmayaa.');
+                    location.reload();
+                } else {
+                    setLicenseMsg('Lambarkan ma ahan VIP.');
+                }
+                return;
+            }
+
+            const key = parseLicenseKey(raw);
+            if (!key) {
+                setLicenseMsg('Furahan waa khalad. Qaabka saxda ah: GANACSI-NOV2026');
+                return;
+            }
+
+            // Key month must be the current month or the next month
+            const monthsAhead = (key.year - nowDate.getFullYear()) * 12 + (key.monthIndex - nowDate.getMonth());
+            if (monthsAhead < 0) {
+                setLicenseMsg('Furahan waa duugoobay (bishii hore ayay ahayd).');
+                return;
+            }
+            if (monthsAhead > 1) {
+                setLicenseMsg('Furahan wali ma shaqeynayo (bisha soo socota ka dib ayay ahayd).');
+                return;
+            }
+
+            // Each key can be used only once
+            let used = [];
+            try { used = JSON.parse(localStorage.getItem(LS_USED_KEYS)) || []; } catch (e) { used = []; }
+            if (used.includes(key.normalized)) {
+                setLicenseMsg('Furahan hore ayaa loo isticmaalay.');
+                return;
+            }
+
+            // Extend 30 days from today, or from the current expiry if it is still in the future
+            const base = expiryDate > nowDate ? new Date(expiryDate.getTime()) : new Date(nowDate.getTime());
+            base.setHours(12, 0, 0, 0);
+            base.setDate(base.getDate() + SUB_DAYS);
+            const newExpiryISO = toISODate(base);
+
+            used.push(key.normalized);
+            localStorage.setItem(LS_USED_KEYS, JSON.stringify(used));
+            localStorage.setItem(LS_EXPIRY, newExpiryISO);
+
+            alert('✅ Waa la dhaqaajiyay!\nKu shaqeynaya ilaa: ' + newExpiryISO);
+            location.reload();
+        }
+
+        // Saves this device's phone number (used for the VIP whitelist)
+        function askPhoneNumber() {
+            const current = localStorage.getItem(LS_PHONE) || '';
+            const val = prompt('Geli lambarka telefoonkaaga (tusaale: 0907123456):', current);
+            if (val === null) return;
+            const digits = digitsOnly(val);
+            if (!digits) {
+                localStorage.removeItem(LS_PHONE);
+            } else {
+                localStorage.setItem(LS_PHONE, digits);
+            }
+            location.reload();
+        }
+
+        // Read-only mode: disables the record form, keeps everything else working
+        function applyReadOnlyMode() {
+            if (subscriptionActive) return;
+            document.querySelectorAll('#record-form input, #record-form select').forEach(el => { el.disabled = true; });
+            const saveBtn = document.getElementById('save-btn');
+            saveBtn.disabled = true;
+            saveBtn.textContent = '🔒 Xiran — Dhaqaaji si aad u kaydiso';
+        }
+
+        // Draws the status strip and (when expired) the warning banner
+        function renderSubscriptionUI() {
+            const statusEl = document.getElementById('sub-status');
+            const bannerEl = document.getElementById('sub-banner');
+            const expiryTxt = toISODate(expiryDate);
+            const daysLeft = Math.ceil((expiryDate - nowDate) / 86400000);
+
+            let cls = 'sub-status';
+            let text;
+            if (isVip) {
+                cls += ' vip';
+                text = '⭐ VIP — marna lama xiro';
+            } else if (subscriptionActive) {
+                if (daysLeft <= 5) cls += ' warn';
+                text = '✅ Ku shaqeynaya ilaa ' + expiryTxt + ' (' + daysLeft + ' maalmood ayaa hadhay)';
+            } else {
+                cls += ' expired';
+                text = '⛔ Waa dhammaaday: ' + expiryTxt;
+            }
+            statusEl.className = cls;
+            statusEl.innerHTML = '<span>' + escapeHtml(text) + '</span>' +
+                '<button type="button" class="phone-btn" id="phone-btn">📱 Lambarka</button>';
+            document.getElementById('phone-btn').addEventListener('click', askPhoneNumber);
+
+            if (subscriptionActive) {
+                bannerEl.innerHTML = '';
+                return;
+            }
+
+            bannerEl.innerHTML = `
+                <div class="expired-banner">
+                    <p class="t">⛔ Isdiiwaangelintii waa dhammaatay</p>
+                    <p class="d">Waxaad weli arki kartaa diiwaankaaga, deymahaaga iyo xisaabtaada, laakiin ma kaydin kartid wax cusub ilaa aad dhaqaajiso. Geli furaha bisha (tusaale: GANACSI-NOV2026).</p>
+                    <div class="license-row">
+                        <input type="text" id="license-input" placeholder="GANACSI-NOV2026" autocomplete="off" autocapitalize="characters">
+                        <button type="button" class="activate-btn" id="activate-btn">Dhaqaaji</button>
+                    </div>
+                    <p class="license-msg" id="license-msg"></p>
+                </div>
+            `;
+            document.getElementById('activate-btn').addEventListener('click', verifyAndActivateKey);
+            document.getElementById('license-input').addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') { e.preventDefault(); verifyAndActivateKey(); }
+            });
+        }
+
+        // =====================================================================
+        //  APP
+        // =====================================================================
 
         // ---------- Safe helpers ----------
         function escapeHtml(str) {
@@ -206,6 +456,13 @@
         // Customer balance = sum of what is still unpaid on each item
         function getBalanceCents(cust) {
             return cust.items.reduce((sum, i) => sum + remainingCents(i), 0);
+        }
+
+        // Total outstanding debt across all customers, in cents
+        function getTotalDebtCents() {
+            let total = 0;
+            Object.values(customers).forEach(cust => { total += getBalanceCents(cust); });
+            return total;
         }
 
         // Unpaid items grouped by description: [{ key, desc, cents }]
@@ -286,12 +543,8 @@
             listEl.innerHTML = '';
             const searchTerm = searchInput.value.toLowerCase();
 
-            // Total outstanding debt across all active customer cards
-            let totalDebtCents = 0;
-            Object.values(customers).forEach(cust => { totalDebtCents += getBalanceCents(cust); });
-
             totalSalesEl.innerText = `$${totalRevenue.toFixed(2)}`;
-            totalDebtEl.innerText = money(totalDebtCents);
+            totalDebtEl.innerText = money(getTotalDebtCents());
 
             // 1. Standalone cash sales
             const filteredCash = cashSales.filter(tx =>
@@ -388,6 +641,13 @@
         // ---------- Add records ----------
         form.addEventListener('submit', (e) => {
             e.preventDefault();
+
+            // Safety guard: no new records when the subscription has expired
+            if (!subscriptionActive) {
+                alert('⛔ Isdiiwaangelintii waa dhammaatay.\nDhaqaaji furaha bisha si aad wax cusub u kaydiso.');
+                return;
+            }
+
             const type = typeEl.value;
             const customerName = customerEl.value.trim();
             const description = descriptionEl.value.trim();
@@ -510,16 +770,44 @@
             }
         }
 
-        function clearData() {
-            if (confirm("Ma hubtaa inaad tirtirto dhammaan xisaabta?")) {
-                cashSales = [];
-                customers = {};
-                totalRevenue = 0;
-                localStorage.removeItem('ganacsi_cash');
-                localStorage.removeItem('ganacsi_customers');
-                localStorage.removeItem('ganacsi_revenue');
-                updateUI();
+        // ---------- Separate deletion: Iibka Guud (Total Sales) ----------
+        // Resets total sales to $0.00 and removes the cash sale cards.
+        // Customer debts, balances and Bixin cards are NOT touched.
+        function clearSales() {
+            if (totalRevenue <= 0 && cashSales.length === 0) {
+                alert('Iibka guud horay ayuu u ahaa $0.00. Wax la tirtiro ma jiraan.');
+                return;
             }
+            const ok = confirm(
+                '⚠️ Digniin!\n\nWaxaad tirtirayaa Iibka Guud: $' + totalRevenue.toFixed(2) +
+                '\n\nDiiwaanka iibka kaashka ah ayaa sidoo kale la tirtirayaa.' +
+                '\nDeynta maqan waa sidii oo kale (ma isbeddelayso).' +
+                '\n\nMa hubtaa inaad tirtirto Iibka Guud?'
+            );
+            if (!ok) return;
+
+            totalRevenue = 0;
+            cashSales = [];
+            updateUI();
+        }
+
+        // ---------- Separate deletion: Deynta Maqan (Total Debt) ----------
+        // Removes all customer debt cards. Total sales and cash sales are NOT touched.
+        function clearDebts() {
+            if (Object.keys(customers).length === 0) {
+                alert('Deynta maqan horay ayay u ahayd $0.00. Wax la tirtiro ma jiraan.');
+                return;
+            }
+            const ok = confirm(
+                '⚠️ Digniin!\n\nWaxaad tirtirayaa dhammaan Deynta Maqan: ' + money(getTotalDebtCents()) +
+                '\n\nDhammaan kaadhadhka macmiilka ayaa la tirtirayaa.' +
+                '\nIibka Guud waa sidii oo kale (ma isbeddelayso).' +
+                '\n\nMa hubtaa inaad tirtirto Deynta Maqan?'
+            );
+            if (!ok) return;
+
+            customers = {};
+            updateUI();
         }
 
         // ---------- Event delegation for all list buttons ----------
@@ -533,10 +821,13 @@
             else if (action === 'settle') settleCustomer(key);
         });
 
-        document.getElementById('clear-all-btn').addEventListener('click', clearData);
+        document.getElementById('clear-sales-btn').addEventListener('click', clearSales);
+        document.getElementById('clear-debt-btn').addEventListener('click', clearDebts);
 
         // ---------- Start ----------
         migrateCustomers();
+        renderSubscriptionUI();
+        applyReadOnlyMode();
         updateUI();
     </script>
 </body>
