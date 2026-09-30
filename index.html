@@ -43,6 +43,7 @@
         .payment-row { border-left-color: #34d399; background: #f0fdf4; padding: 0.3rem 0.5rem; border-radius: 0.25rem; margin-top: 0.3rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #065f46; }
         .hint { font-size: 0.7rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.4rem; padding: 0.4rem 0.5rem; }
         .hint.info { color: #1e40af; background: #eff6ff; border-color: #bfdbfe; margin-top: 0.4rem; }
+        .hint.total { font-weight: 700; font-size: 0.78rem; }
         .partial-note { font-size: 10px; color: #b45309; display: block; margin-top: 0.15rem; }
 
         /* ----- Tabs (inside sticky header) ----- */
@@ -180,8 +181,9 @@
                     </div>
 
                     <div>
-                        <label>Lacagta (USD ama Sh.So) — haddii stock la doortay, geli wadarta qiimaha</label>
+                        <label id="amount-label">Lacagta (USD ama Sh.So)</label>
                         <input type="number" step="any" min="0.01" id="amount" placeholder="0.00" required>
+                        <p id="total-hint" class="hint info total" hidden></p>
                     </div>
 
                     <button type="submit" class="save-btn" id="save-btn">Kaydi (Save)</button>
@@ -551,6 +553,9 @@
         //  APP
         // =====================================================================
 
+        // Question shown before deleting anything linked to inventory
+        const STOCK_DELETE_QUESTION = 'Ma hubtaa inaad tirtiraysid iibkan stock-ga la xiriira?';
+
         // ---------- Safe helpers ----------
         function escapeHtml(str) {
             return String(str)
@@ -594,8 +599,9 @@
         function fmtQty(n) { return String(r3(n)); }
 
         // ---------- State ----------
-        // cashSales:    [{ id, customer, description, amount, date, time, stockKey, qty, cogs }]
-        // customers:    { "khadar": { name, items: [ { id, desc, amount, paid, date, time, paidDate, paidTime, stockKey, qty, cogs } ] } }
+        // cashSales:    [{ id, customer, description, amount, date, time, stockKey, qty, unit, cogs }]
+        //               amount = final total saved (qty x unit price when stock-linked)
+        // customers:    { "khadar": { name, items: [ { id, desc, amount, paid, date, time, paidDate, paidTime, stockKey, qty, unit, cogs } ] } }
         //               Each debt item carries its own paid amount. A fully paid item
         //               is drawn as a "Bixin" card. There is no separate payments list.
         // totalRevenue: persistent number = cash sales + collected debt payments
@@ -617,6 +623,8 @@
         const customerEl = document.getElementById('customer');
         const descriptionEl = document.getElementById('description');
         const amountEl = document.getElementById('amount');
+        const amountLabelEl = document.getElementById('amount-label');
+        const totalHintEl = document.getElementById('total-hint');
         const totalSalesEl = document.getElementById('total-sales');
         const totalDebtEl = document.getElementById('total-debt');
         const listEl = document.getElementById('transactions-list');
@@ -677,6 +685,13 @@
 
         function stockValueCents(it) {
             return Math.round(Math.max(stockRemaining(it), 0) * (it.avgCost || 0) * 100);
+        }
+
+        // Small label for a record: " • 📦 ×10 @ $50.00"
+        function qtyLabel(rec) {
+            if (!rec.stockKey || !rec.qty) return '';
+            const unitTxt = rec.unit ? ' @ $' + Number(rec.unit).toFixed(2) : '';
+            return ' • 📦 ×' + fmtQty(rec.qty) + unitTxt;
         }
 
         // ---------- Debt item helpers ----------
@@ -802,16 +817,44 @@
             if (!show) stockSelectEl.value = '';
         }
 
+        // Unit price mode: when a stock item is chosen, the money field is the price per unit
+        // and a live total (quantity x unit price) is shown underneath.
+        function refreshAmountUI() {
+            const it = stock[stockSelectEl.value];
+            const linked = !!it && !stockFieldsEl.hidden && typeEl.value !== 'payment';
+
+            amountLabelEl.textContent = linked
+                ? 'Qiimaha halkii unug (Unit Price, USD)'
+                : 'Lacagta (USD ama Sh.So)';
+
+            if (!linked) {
+                totalHintEl.hidden = true;
+                return;
+            }
+
+            const q = parseFloat(qtyEl.value);
+            const p = parseFloat(amountEl.value);
+            totalHintEl.hidden = false;
+            if (q > 0 && p > 0) {
+                const total = Math.round(q * p * 100) / 100;
+                totalHintEl.textContent = 'Wadarta guud: ' + fmtQty(q) + ' x $' + p.toFixed(2) + ' = $' + total.toFixed(2);
+            } else {
+                totalHintEl.textContent = 'Wadarta guud: geli tirada iyo qiimaha halkii unug.';
+            }
+        }
+
         function refreshStockHint() {
             const it = stock[stockSelectEl.value];
             if (!it || stockFieldsEl.hidden) {
                 qtyWrapEl.hidden = true;
+                refreshAmountUI();
                 return;
             }
             qtyWrapEl.hidden = false;
             stockHintEl.textContent = 'Stock hadhay: ' + fmtQty(stockRemaining(it)) +
                 ' • Kharashka celceliska: $' + (it.avgCost || 0).toFixed(2) + ' halkii unug. ' +
-                'Lacagta hoose = wadarta qiimaha iibka.';
+                'Lacagta hoose = qiimaha halkii unug.';
+            refreshAmountUI();
         }
 
         function refreshFormExtras() {
@@ -845,14 +888,13 @@
             );
 
             filteredCash.slice().reverse().forEach(tx => {
-                const qtyTxt = (tx.stockKey && tx.qty) ? ' • 📦 ×' + fmtQty(tx.qty) : '';
                 const el = document.createElement('div');
                 el.className = 'sale-card';
                 el.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <p style="font-weight: 600; color: #065f46;">🛒 ${escapeHtml(tx.customer)}: ${escapeHtml(tx.description)}</p>
-                            <span style="font-size: 10px; color: #64748b;">${escapeHtml(tx.date)} • ${escapeHtml(tx.time)} • Kaash${qtyTxt}</span>
+                            <span style="font-size: 10px; color: #64748b;">${escapeHtml(tx.date)} • ${escapeHtml(tx.time)} • Kaash${escapeHtml(qtyLabel(tx))}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-weight: bold; color: #059669;">$${tx.amount.toFixed(2)}</span>
@@ -875,7 +917,7 @@
                 cust.items.forEach(item => {
                     const rem = remainingCents(item);
                     const paidC = toCents(item.paid);
-                    const qtyTxt = (item.stockKey && item.qty) ? ' • 📦 ×' + fmtQty(item.qty) : '';
+                    const qtyTxt = escapeHtml(qtyLabel(item));
                     const delBtn = `<button type="button" class="del-btn" data-action="delete-item" data-key="${safeKey}" data-id="${escapeHtml(item.id)}">✕ Tirtir</button>`;
 
                     if (rem === 0) {
@@ -1081,12 +1123,16 @@
             const type = typeEl.value;
             const customerName = customerEl.value.trim();
             const description = descriptionEl.value.trim();
-            const amount = parseFloat(amountEl.value);
+            const enteredAmount = parseFloat(amountEl.value);
 
-            if (!customerName || !description || !(amount > 0)) return;
+            if (!customerName || !description || !(enteredAmount > 0)) return;
+
+            // amount = the final total that is saved.
+            // For stock-linked sales it is quantity x unit price.
+            let amount = enteredAmount;
 
             // ---- Stock link (sale / debt only) ----
-            let stockKey = '', qty = 0, cogs = 0, stockItem = null;
+            let stockKey = '', qty = 0, cogs = 0, unit = 0, stockItem = null;
             if (type !== 'payment' && stockSelectEl.value) {
                 stockKey = stockSelectEl.value;
                 stockItem = stock[stockKey];
@@ -1105,6 +1151,14 @@
                           '\nTirada aad gelisay: ' + fmtQty(qty) + '\n\nIibka lama kaydin.');
                     return;
                 }
+
+                // The money field is the price per unit: total = quantity x unit price
+                unit = enteredAmount;
+                amount = Math.round(qty * unit * 100) / 100;
+                if (!(amount > 0)) {
+                    alert('⚠️ Wadarta guud waa inay ka weyn tahay $0.00.');
+                    return;
+                }
                 cogs = Math.round(qty * (stockItem.avgCost || 0) * 100);
             }
 
@@ -1115,7 +1169,7 @@
             const key = normalize(customerName);
 
             if (type === 'sale') {
-                cashSales.push({ id, customer: customerName, description, amount, date, time, stockKey, qty, cogs });
+                cashSales.push({ id, customer: customerName, description, amount, date, time, stockKey, qty, unit, cogs });
                 totalRevenue += amount;
                 if (stockItem) {
                     stockItem.sold = r3((stockItem.sold || 0) + qty);
@@ -1126,7 +1180,7 @@
                 if (!customers[key]) {
                     customers[key] = { name: customerName, items: [] };
                 }
-                customers[key].items.push({ id, desc: description, amount, paid: 0, date, time, stockKey, qty, cogs });
+                customers[key].items.push({ id, desc: description, amount, paid: 0, date, time, stockKey, qty, unit, cogs });
                 if (stockItem) {
                     stockItem.sold = r3((stockItem.sold || 0) + qty);   // goods leave the shop now; cost recognized as it is paid
                 }
@@ -1173,6 +1227,8 @@
         searchInput.addEventListener('input', updateUI);
         typeEl.addEventListener('change', () => { refreshSuggestions(); toggleStockFields(); refreshStockHint(); });
         customerEl.addEventListener('input', refreshSuggestions);
+        qtyEl.addEventListener('input', refreshAmountUI);
+        amountEl.addEventListener('input', refreshAmountUI);
         stockSelectEl.addEventListener('change', () => {
             const it = stock[stockSelectEl.value];
             if (it && (descriptionEl.value.trim() === '' || descriptionEl.value === lastAutoDesc)) {
@@ -1271,29 +1327,49 @@
         });
 
         // ---------- Actions ----------
+
+        // Deleting a cash sale.
+        //  - Stock-linked: asks the stock question first. Only after OK, the quantity goes
+        //    back to stock and the cost leaves COGS. Cancel changes nothing.
+        //  - Not stock-linked: deleted as before.
+        // In both cases the sale's amount leaves total revenue (it was a mistaken entry).
         function deleteCashSale(id) {
             const index = cashSales.findIndex(tx => tx.id === id);
-            if (index !== -1) {
-                // A cash sale entered by mistake is removed from revenue too
-                const removed = cashSales.splice(index, 1)[0];
-                totalRevenue = Math.max(totalRevenue - removed.amount, 0);
+            if (index === -1) return;
 
-                // ...and its goods go back to stock, its cost leaves COGS
-                if (removed.stockKey && stock[removed.stockKey]) {
-                    const it = stock[removed.stockKey];
-                    it.sold = Math.max(r3((it.sold || 0) - (removed.qty || 0)), 0);
-                }
-                if (removed.cogs) cogsCents = Math.max(cogsCents - removed.cogs, 0);
-                updateUI();
+            const tx = cashSales[index];
+            const isLinked = !!(tx.stockKey && tx.qty > 0);
+            const it = isLinked ? stock[tx.stockKey] : null;
+
+            if (isLinked) {
+                const msg =
+                    '⚠️ ' + STOCK_DELETE_QUESTION +
+                    '\n\n"' + tx.description + '" — $' + tx.amount.toFixed(2) +
+                    '\n📦 ' + (it ? it.name : tx.description) + ' × ' + fmtQty(tx.qty) +
+                    '\n\nIibka guud waxaa laga jarayaa: $' + tx.amount.toFixed(2) + '.' +
+                    (it
+                        ? '\nStock-ga waxaa ku soo noqonaya: ' + fmtQty(tx.qty) + '.'
+                        : '\nAlaabtan hadda stock-ga kuma jirto, sidaas darteed wax lagu soo celinayo ma jiraan.');
+                if (!confirm(msg)) return;
             }
+
+            cashSales.splice(index, 1);
+            totalRevenue = Math.max(totalRevenue - tx.amount, 0);
+
+            // Goods go back to stock, cost leaves COGS (only after confirmation above)
+            if (it) {
+                it.sold = Math.max(r3((it.sold || 0) - (tx.qty || 0)), 0);
+            }
+            if (tx.cogs) cogsCents = Math.max(cogsCents - tx.cogs, 0);
+            updateUI();
         }
 
         // Deleting a debt/Bixin card:
-        //  - Unpaid or partly paid: asks for confirmation. Only the still-unpaid part
-        //    leaves the balance. Revenue is never changed.
-        //  - Fully paid (Bixin): asks for confirmation. Nothing changes in balance
-        //    or revenue, because it was already counted when paid.
-        //  - Unpaid stock-linked debt: also asks whether to return the goods to stock.
+        //  - Not stock-linked: the usual warnings (unpaid = warns, paid = no change).
+        //  - Stock-linked: asks the stock question first. After OK, the goods for the
+        //    still-unpaid share go back to stock. A fully paid card returns nothing,
+        //    because those goods were sold and the money is already in revenue.
+        //  - Revenue is never changed here.
         function deleteCustomerItem(key, id) {
             const cust = customers[key];
             if (!cust) return;
@@ -1303,32 +1379,50 @@
 
             const item = cust.items[idx];
             const rem = remainingCents(item);
-            let restoreStock = false;
+            const amtC = toCents(item.amount);
+            const isLinked = !!(item.stockKey && item.qty > 0);
+            const stockIt = isLinked ? stock[item.stockKey] : null;
+            let returnQty = 0;
 
-            if (rem > 0) {
+            if (isLinked) {
+                // Goods for the unpaid share return to stock
+                returnQty = (stockIt && amtC > 0) ? r3(item.qty * rem / amtC) : 0;
+
+                let msg =
+                    '⚠️ ' + STOCK_DELETE_QUESTION +
+                    '\n\n"' + item.desc + '" — ' + money(amtC) +
+                    '\n📦 ' + (stockIt ? stockIt.name : item.desc) + ' × ' + fmtQty(item.qty);
+
+                if (rem > 0) {
+                    msg += '\n\nDeyn weli lama bixin: ' + money(rem) + ' — waxay ka baaba\'aysaa deynta ' + cust.name + '.';
+                } else {
+                    msg += '\n\nDeyntan waa la bixiyay — iibka guud iyo deynta ma isbeddelayaan.';
+                }
+                if (returnQty > 0) {
+                    msg += '\nStock-ga waxaa ku soo noqonaya: ' + fmtQty(returnQty) + '.';
+                } else {
+                    msg += '\nStock-ga wax lagu soo celinayo ma jiraan.';
+                }
+                if (!confirm(msg)) return;
+
+            } else if (rem > 0) {
                 const ok = confirm(
                     '⚠️ Digniin!\n\nDeyntan weli lama bixin:\n"' + item.desc + '" — ' + money(rem) +
                     '\n\nHaddii aad tirtirto, waxay ka baaba\'aysaa deynta ' + cust.name + '.\n\nMa hubtaa inaad tirtirto?'
                 );
                 if (!ok) return;
 
-                if (item.stockKey && stock[item.stockKey] && item.qty > 0 && toCents(item.paid) === 0) {
-                    restoreStock = confirm(
-                        '📦 Ma ku soo celinaysaa alaabta stock-ga?\n\n"' + stock[item.stockKey].name + '" × ' + fmtQty(item.qty) +
-                        '\n\nOK = ku soo celi stock-ga\nCancel = ha soo celin'
-                    );
-                }
             } else {
                 const ok = confirm(
-                    'Bixintan waa la sifeeyay:\n"' + item.desc + '" — ' + money(toCents(item.amount)) +
+                    'Bixintan waa la sifeeyay:\n"' + item.desc + '" — ' + money(amtC) +
                     '\n\nTirtirkeedu ma beddelayo deynta iyo iibka guud.\n\nMa hubtaa inaad tirtirto diiwaankan?'
                 );
                 if (!ok) return;
             }
 
-            if (restoreStock) {
-                const it = stock[item.stockKey];
-                it.sold = Math.max(r3((it.sold || 0) - item.qty), 0);
+            // Confirmed: reverse the stock effect
+            if (returnQty > 0 && stockIt) {
+                stockIt.sold = Math.max(r3((stockIt.sold || 0) - returnQty), 0);
             }
 
             // Removes the card only. Revenue is NEVER changed here.
@@ -1396,6 +1490,9 @@
         }
 
         // ---------- Delete: purchase (reverses its stock) ----------
+        // If part of the purchase was already sold, the deletion is refused first
+        // (stock cannot go below zero). Otherwise the stock question is asked, and the
+        // quantity is removed from stock only after OK.
         function deletePurchase(id) {
             const idx = purchases.findIndex(p => p.id === id);
             if (idx === -1) return;
@@ -1413,9 +1510,9 @@
             }
 
             const ok = confirm(
-                '⚠️ Digniin!\n\nWaxaad tirtirayaa iibsashada:\n"' + p.item + '" × ' + fmtQty(p.qty) + ' — $' + Number(p.total).toFixed(2) +
-                (it ? '\n\nStock-ga waxaa laga jarayaa ' + fmtQty(take) + '.' : '') +
-                '\n\nMa hubtaa?'
+                '⚠️ ' + STOCK_DELETE_QUESTION +
+                '\n\n"' + p.item + '" × ' + fmtQty(p.qty) + ' — $' + Number(p.total).toFixed(2) +
+                (it ? '\n\nStock-ga waxaa laga jarayaa: ' + fmtQty(take) + '.' : '')
             );
             if (!ok) return;
 
