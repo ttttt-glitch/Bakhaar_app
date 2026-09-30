@@ -9,8 +9,9 @@
     <!-- Inline Native Styles for 100% Offline Reliability -->
     <style>
         * { box-sizing: border-box; margin: 0; padding: 0; font-family: system-ui, -apple-system, sans-serif; }
+        [hidden] { display: none !important; }
         body { background-color: #f1f5f9; color: #1e293b; padding-bottom: 3rem; }
-        header { background-color: #047857; color: white; padding: 1rem; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
+        header { background-color: #047857; color: white; padding: 1rem 1rem 0.75rem; position: sticky; top: 0; z-index: 50; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         .max { max-width: 28rem; margin: 0 auto; display: flex; justify-content: space-between; align-items: center; }
         main { max-width: 28rem; margin: 0 auto; padding: 1rem; display: flex; flex-direction: column; gap: 1.5rem; }
         .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; }
@@ -41,14 +42,21 @@
         .item-row { display: flex; justify-content: space-between; font-size: 0.8rem; color: #475569; margin-top: 0.3rem; padding-left: 0.5rem; border-left: 2px solid #fca5a5; align-items: center; }
         .payment-row { border-left-color: #34d399; background: #f0fdf4; padding: 0.3rem 0.5rem; border-radius: 0.25rem; margin-top: 0.3rem; display: flex; justify-content: space-between; align-items: center; font-size: 0.8rem; color: #065f46; }
         .hint { font-size: 0.7rem; color: #b45309; background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.4rem; padding: 0.4rem 0.5rem; }
-        .hint[hidden] { display: none; }
+        .hint.info { color: #1e40af; background: #eff6ff; border-color: #bfdbfe; margin-top: 0.4rem; }
         .partial-note { font-size: 10px; color: #b45309; display: block; margin-top: 0.15rem; }
+
+        /* ----- Tabs (inside sticky header) ----- */
+        .tabs { max-width: 28rem; margin: 0.65rem auto 0; display: flex; gap: 0.35rem; }
+        .tab-btn { flex: 1; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 0.5rem; padding: 0.5rem 0.2rem; font-size: 0.7rem; font-weight: 600; cursor: pointer; }
+        .tab-btn.active { background: white; color: #047857; }
+        .tab-panel { display: flex; flex-direction: column; gap: 1.5rem; }
 
         /* ----- Subscription status strip ----- */
         .sub-status { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
         .sub-status.warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
         .sub-status.expired { background: #fff1f2; border-color: #fecdd3; color: #9f1239; }
         .sub-status.vip { background: #eff6ff; border-color: #bfdbfe; color: #1e40af; }
+        .sub-btns { display: flex; gap: 0.3rem; flex-shrink: 0; }
         .phone-btn { flex-shrink: 0; font-size: 0.7rem; background: white; border: 1px solid currentColor; color: inherit; border-radius: 0.4rem; padding: 0.25rem 0.5rem; cursor: pointer; }
 
         /* ----- Expired banner + activation box ----- */
@@ -60,6 +68,26 @@
         .activate-btn { background: #e11d48; color: white; border: none; border-radius: 0.5rem; padding: 0 1rem; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
         .activate-btn:hover { background: #be123c; }
         .license-msg { font-size: 0.75rem; color: #be123c; margin-top: 0.5rem; min-height: 1em; }
+
+        /* ----- Stock / purchases / expenses ----- */
+        #stock-fields { display: flex; flex-direction: column; gap: 0.75rem; }
+        .stock-row { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.5rem; padding: 0.65rem 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+        .stock-name { font-weight: 700; color: #1e3a8a; font-size: 0.9rem; }
+        .stock-eq { font-size: 0.72rem; color: #475569; margin-top: 0.15rem; }
+        .stock-meta { font-size: 0.68rem; color: #64748b; margin-top: 0.1rem; }
+        .stock-right { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
+        .stock-qty { font-weight: 800; font-size: 1.15rem; color: #1d4ed8; }
+        .stock-qty.low { color: #e11d48; }
+        .buy-row { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 0.5rem; padding: 0.6rem 0.75rem; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+        .exp-row { background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.5rem; padding: 0.6rem 0.75rem; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
+        .exp-row.pay { background: #fdf2f8; border-color: #fbcfe8; }
+        .sub-note { font-size: 0.72rem; color: #64748b; margin-bottom: 0.6rem; }
+        .pl-line { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; padding: 0.4rem 0; border-bottom: 1px dashed #e2e8f0; color: #334155; }
+        .pl-line.strong { font-weight: 700; border-bottom: 1px solid #cbd5e1; }
+        .pl-net { margin-top: 0.6rem; padding: 0.8rem; border-radius: 0.6rem; display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; }
+        .pl-net.profit { background: #ecfdf5; border: 2px solid #34d399; color: #047857; }
+        .pl-net.loss { background: #fff1f2; border: 2px solid #fb7185; color: #be123c; }
+        .pl-info { font-size: 0.72rem; color: #64748b; margin-top: 0.6rem; line-height: 1.5; }
     </style>
 
     <!-- PWA Manifest, Icons & Service Worker Registration -->
@@ -76,86 +104,210 @@
 </head>
 <body>
 
-    <!-- Header -->
+    <!-- Header + Tabs -->
     <header>
         <div class="max">
             <h1 style="font-size: 1.15rem; font-weight: bold;">🛒 Xisaabta Ganacsigaaga</h1>
             <span id="current-date" class="date-badge"></span>
         </div>
+        <nav class="tabs">
+            <button type="button" class="tab-btn active" data-tab="main">🛒 Iib & Deyn</button>
+            <button type="button" class="tab-btn" data-tab="buy">📥 Iibsasho</button>
+            <button type="button" class="tab-btn" data-tab="stock">📦 Stock</button>
+            <button type="button" class="tab-btn" data-tab="acct">💰 Xisaab</button>
+        </nav>
     </header>
 
     <main>
 
-        <!-- Subscription status strip -->
+        <!-- Subscription status strip (visible on every tab) -->
         <div id="sub-status" class="sub-status"></div>
 
-        <!-- Summary Cards (each has its own separate delete button) -->
-        <div class="grid-2">
+        <!-- ==================== TAB 1: SALES & DEBT ==================== -->
+        <section id="tab-main" class="tab-panel">
+
+            <!-- Summary Cards (each has its own separate delete button) -->
+            <div class="grid-2">
+                <div class="card">
+                    <p class="label">Iibka Guud (Total Sales)</p>
+                    <p id="total-sales" class="sales-val">$0.00</p>
+                    <button type="button" id="clear-sales-btn" class="clear-btn">Tirtir Iibka</button>
+                </div>
+                <div class="card">
+                    <p class="label">Deynta Maqan (Total Debt)</p>
+                    <p id="total-debt" class="debt-val">$0.00</p>
+                    <button type="button" id="clear-debt-btn" class="clear-btn">Tirtir Deynta</button>
+                </div>
+            </div>
+
+            <!-- Quick Actions Form -->
             <div class="card">
-                <p class="label">Iibka Guud (Total Sales)</p>
-                <p id="total-sales" class="sales-val">$0.00</p>
-                <button type="button" id="clear-sales-btn" class="clear-btn">Tirtir Iibka</button>
+                <h2>Diiwaangelinta Wax Kala iibsiga/Deynta</h2>
+
+                <form id="record-form" class="lock-form">
+                    <div>
+                        <label>Nooca (Type)</label>
+                        <select id="type">
+                            <option value="sale">Iib Caddaan ah (Sahal/Kaash)</option>
+                            <option value="debt">Deyn Cusub (Customer Credit)</option>
+                            <option value="payment">Bixinta Deynta (Debt Payment / Bixin)</option>
+                        </select>
+                    </div>
+
+                    <!-- Stock link (shown for sale/debt when stock items exist) -->
+                    <div id="stock-fields" hidden>
+                        <div>
+                            <label>Alaabta Stock-ga (ikhtiyaari / optional)</label>
+                            <select id="stock-item"></select>
+                        </div>
+                        <div id="qty-wrap" hidden>
+                            <label>Tirada la iibiyay (Quantity)</label>
+                            <input type="number" step="any" min="0.001" id="qty" placeholder="0">
+                            <p id="stock-hint" class="hint info"></p>
+                        </div>
+                    </div>
+
+                    <div>
+                        <label>Magaca Macmiilka (Customer Name)</label>
+                        <input type="text" id="customer" placeholder="Tusaale: Khadar" required>
+                    </div>
+
+                    <div>
+                        <label>Faahfaahinta Alaabta / Bixinta (Description)</label>
+                        <input type="text" id="description" list="unpaid-items" placeholder="Tusaale: Bariis" required autocomplete="off">
+                        <datalist id="unpaid-items"></datalist>
+                        <p id="payment-hint" class="hint" hidden>Bixinta waa inay ku qornaataa magaca alaabta deynta ah ee macmiilkan (sida ay u qoran tahay).</p>
+                    </div>
+
+                    <div>
+                        <label>Lacagta (USD ama Sh.So) — haddii stock la doortay, geli wadarta qiimaha</label>
+                        <input type="number" step="any" min="0.01" id="amount" placeholder="0.00" required>
+                    </div>
+
+                    <button type="submit" class="save-btn" id="save-btn">Kaydi (Save)</button>
+                </form>
             </div>
+
+            <!-- Transaction Lists / Customer Ledger -->
             <div class="card">
-                <p class="label">Deynta Maqan (Total Debt)</p>
-                <p id="total-debt" class="debt-val">$0.00</p>
-                <button type="button" id="clear-debt-btn" class="clear-btn">Tirtir Deynta</button>
+                <h2>
+                    <span>Diiwaanka Dhaqdhaqaaqa</span>
+                </h2>
+
+                <!-- Expired warning + offline activation box (filled by script when expired) -->
+                <div id="sub-banner"></div>
+
+                <!-- Instant Search Input -->
+                <div style="margin-bottom: 0.75rem;">
+                    <input type="text" id="search-input" placeholder="🔍 Raadi magaca macmiilka...">
+                </div>
+
+                <div id="transactions-list" class="list-container">
+                    <p class="text-center">Wali wax xisaab ah lama gelin.</p>
+                </div>
             </div>
-        </div>
+        </section>
 
-        <!-- Quick Actions Form -->
-        <div class="card">
-            <h2>Diiwaangelinta Wax Kala iibsiga/Deynta</h2>
+        <!-- ==================== TAB 2: PURCHASING / STOCK-IN ==================== -->
+        <section id="tab-buy" class="tab-panel" hidden>
+            <div class="card">
+                <h2>Diiwaangelinta Iibsashada Alaabta (Stock-In)</h2>
 
-            <form id="record-form">
-                <div>
-                    <label>Nooca (Type)</label>
-                    <select id="type">
-                        <option value="sale">Iib Caddaan ah (Sahal/Kaash)</option>
-                        <option value="debt">Deyn Cusub (Customer Credit)</option>
-                        <option value="payment">Bixinta Deynta (Debt Payment / Bixin)</option>
-                    </select>
-                </div>
-
-                <div>
-                    <label>Magaca Macmiilka (Customer Name)</label>
-                    <input type="text" id="customer" placeholder="Tusaale: Khadar" required>
-                </div>
-
-                <div>
-                    <label>Faahfaahinta Alaabta / Bixinta (Description)</label>
-                    <input type="text" id="description" list="unpaid-items" placeholder="Tusaale: Bariis" required autocomplete="off">
-                    <datalist id="unpaid-items"></datalist>
-                    <p id="payment-hint" class="hint" hidden>Bixinta waa inay ku qornaataa magaca alaabta deynta ah ee macmiilkan (sida ay u qoran tahay).</p>
-                </div>
-
-                <div>
-                    <label>Lacagta (USD ama Sh.So)</label>
-                    <input type="number" step="any" min="0.01" id="amount" placeholder="0.00" required>
-                </div>
-
-                <button type="submit" class="save-btn" id="save-btn">Kaydi (Save)</button>
-            </form>
-        </div>
-
-        <!-- Transaction Lists / Customer Ledger -->
-        <div class="card">
-            <h2>
-                <span>Diiwaanka Dhaqdhaqaaqa</span>
-            </h2>
-
-            <!-- Expired warning + offline activation box (filled by script when expired) -->
-            <div id="sub-banner"></div>
-
-            <!-- Instant Search Input -->
-            <div style="margin-bottom: 0.75rem;">
-                <input type="text" id="search-input" placeholder="🔍 Raadi magaca macmiilka...">
+                <form id="purchase-form" class="lock-form">
+                    <div>
+                        <label>Nooca (Type)</label>
+                        <select id="p-type">
+                            <option value="purchase">Iibsasho cusub (Wholesale Purchase)</option>
+                            <option value="opening">Stock hore / bilow (Opening Stock)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Magaca Alaabta (Item Name)</label>
+                        <input type="text" id="p-item" list="stock-names" placeholder="Tusaale: Sarreen" required autocomplete="off">
+                        <datalist id="stock-names"></datalist>
+                    </div>
+                    <div>
+                        <label>Tirada la iibsaday (Quantity Bought)</label>
+                        <input type="number" step="any" min="0.001" id="p-qty" placeholder="0" required>
+                    </div>
+                    <div>
+                        <label>Qiimaha Halkii Unug (Buying Cost per unit, USD)</label>
+                        <input type="number" step="any" min="0.0001" id="p-cost" placeholder="0.00" required>
+                        <p id="p-total-hint" class="hint info" hidden></p>
+                    </div>
+                    <div>
+                        <label>Magaca Alaab-qeybiyaha (Supplier Name)</label>
+                        <input type="text" id="p-supplier" placeholder="Tusaale: Cali Wholesale" autocomplete="off">
+                    </div>
+                    <button type="submit" class="save-btn" id="p-save-btn">Kaydi Iibsashada (Save)</button>
+                </form>
             </div>
 
-            <div id="transactions-list" class="list-container">
-                <p class="text-center">Wali wax xisaab ah lama gelin.</p>
+            <div class="card">
+                <h2><span>Diiwaanka Iibsashada</span></h2>
+                <p class="sub-note" id="purchases-summary"></p>
+                <div id="purchases-list" class="list-container">
+                    <p class="text-center">Wali iibsasho lama gelin.</p>
+                </div>
             </div>
-        </div>
+        </section>
+
+        <!-- ==================== TAB 3: INVENTORY ==================== -->
+        <section id="tab-stock" class="tab-panel" hidden>
+            <div class="card">
+                <h2><span>Diiwaanka Stock-ga (Inventory)</span></h2>
+                <p class="sub-note" id="stock-summary"></p>
+                <div id="inventory-list" class="list-container" style="max-height: 32rem;">
+                    <p class="text-center">Wali alaab stock ah lama gelin.</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- ==================== TAB 4: ACCOUNTING ==================== -->
+        <section id="tab-acct" class="tab-panel" hidden>
+
+            <!-- Profit & Loss summary -->
+            <div class="card">
+                <h2><span>Faa'iidada & Khasaaraha (Profit & Loss)</span></h2>
+                <div id="pl-card"></div>
+            </div>
+
+            <!-- Expense & payroll form -->
+            <div class="card">
+                <h2>Diiwaangelinta Kharashka & Mushaharka</h2>
+
+                <form id="expense-form" class="lock-form">
+                    <div>
+                        <label>Nooca Kharashka (Category)</label>
+                        <select id="e-category">
+                            <option value="rent">Kirada Dukaanka (Shop Rent)</option>
+                            <option value="electricity">Koronto (Electricity)</option>
+                            <option value="salary">Mushaharka Shaqaalaha (Employee Salary)</option>
+                            <option value="transport">Gaadiid (Transport)</option>
+                            <option value="water">Biyo (Water)</option>
+                            <option value="internet">Internet / Telefoon</option>
+                            <option value="other">Kale (Other)</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Faahfaahin / Magaca Shaqaalaha (Description)</label>
+                        <input type="text" id="e-desc" placeholder="Tusaale: Mushaharka Axmed" autocomplete="off">
+                    </div>
+                    <div>
+                        <label>Lacagta (USD)</label>
+                        <input type="number" step="any" min="0.01" id="e-amount" placeholder="0.00" required>
+                    </div>
+                    <button type="submit" class="save-btn" id="e-save-btn">Kaydi Kharashka (Save)</button>
+                </form>
+            </div>
+
+            <div class="card">
+                <h2><span>Diiwaanka Kharashka</span></h2>
+                <div id="expenses-list" class="list-container">
+                    <p class="text-center">Wali kharash lama gelin.</p>
+                </div>
+            </div>
+        </section>
 
     </main>
 
@@ -168,7 +320,7 @@
         // =====================================================================
 
         // VIP devices: these numbers are never locked out. Edit this list.
-        const vipDevices = ["907407882"];
+        const vipDevices = ["0907123456"];
 
         // For testing only: default expiry used when none is saved yet (format "YYYY-MM-DD").
         // Leave as null to default to the last day of the current month.
@@ -328,13 +480,15 @@
             location.reload();
         }
 
-        // Read-only mode: disables the record form, keeps everything else working
+        // Read-only mode: disables ALL record forms (sales/debt, purchases, expenses).
+        // Viewing, deleting and settling keep working.
         function applyReadOnlyMode() {
             if (subscriptionActive) return;
-            document.querySelectorAll('#record-form input, #record-form select').forEach(el => { el.disabled = true; });
-            const saveBtn = document.getElementById('save-btn');
-            saveBtn.disabled = true;
-            saveBtn.textContent = '🔒 Xiran — Dhaqaaji si aad u kaydiso';
+            document.querySelectorAll('.lock-form input, .lock-form select').forEach(el => { el.disabled = true; });
+            document.querySelectorAll('.lock-form button[type="submit"]').forEach(btn => {
+                btn.disabled = true;
+                btn.textContent = '🔒 Xiran — Dhaqaaji si aad u kaydiso';
+            });
         }
 
         // Draws the status strip and (when expired) the warning banner
@@ -357,9 +511,19 @@
                 text = '⛔ Waa dhammaaday: ' + expiryTxt;
             }
             statusEl.className = cls;
+            const gotoBtn = (!subscriptionActive)
+                ? '<button type="button" class="phone-btn" id="goto-activate">🔑 Dhaqaaji</button>'
+                : '';
             statusEl.innerHTML = '<span>' + escapeHtml(text) + '</span>' +
-                '<button type="button" class="phone-btn" id="phone-btn">📱 Lambarka</button>';
+                '<span class="sub-btns">' + gotoBtn +
+                '<button type="button" class="phone-btn" id="phone-btn">📱 Lambarka</button></span>';
             document.getElementById('phone-btn').addEventListener('click', askPhoneNumber);
+            const g = document.getElementById('goto-activate');
+            if (g) g.addEventListener('click', () => {
+                showTab('main');
+                const b = document.getElementById('sub-banner');
+                if (b) b.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            });
 
             if (subscriptionActive) {
                 bannerEl.innerHTML = '';
@@ -369,7 +533,7 @@
             bannerEl.innerHTML = `
                 <div class="expired-banner">
                     <p class="t">⛔ Isdiiwaangelintii waa dhammaatay</p>
-                    <p class="d">Waxaad weli arki kartaa diiwaankaaga, deymahaaga iyo xisaabtaada, laakiin ma kaydin kartid wax cusub ilaa aad dhaqaajiso. Geli furaha bisha (tusaale: GANACSI-NOV2026).</p>
+                    <p class="d">Waxaad weli arki kartaa diiwaankaaga, deymahaaga, stock-ga iyo xisaabtaada, laakiin ma kaydin kartid wax cusub ilaa aad dhaqaajiso. Geli furaha bisha (tusaale: GANACSI-NOV2026).</p>
                     <div class="license-row">
                         <input type="text" id="license-input" placeholder="GANACSI-NOV2026" autocomplete="off" autocapitalize="characters">
                         <button type="button" class="activate-btn" id="activate-btn">Dhaqaaji</button>
@@ -420,15 +584,33 @@
             return '$' + (cents / 100).toFixed(2);
         }
 
+        // Money that may be negative (profit / loss)
+        function moneySigned(cents) {
+            return (cents < 0 ? '-' : '') + '$' + (Math.abs(cents) / 100).toFixed(2);
+        }
+
+        // Quantities: keep 3 decimals to avoid floating point noise
+        function r3(n) { return Math.round((Number(n) || 0) * 1000) / 1000; }
+        function fmtQty(n) { return String(r3(n)); }
+
         // ---------- State ----------
-        // cashSales:    [{ id, customer, description, amount, date, time }]
-        // customers:    { "khadar": { name, items: [ { id, desc, amount, paid, date, time, paidDate, paidTime } ] } }
+        // cashSales:    [{ id, customer, description, amount, date, time, stockKey, qty, cogs }]
+        // customers:    { "khadar": { name, items: [ { id, desc, amount, paid, date, time, paidDate, paidTime, stockKey, qty, cogs } ] } }
         //               Each debt item carries its own paid amount. A fully paid item
         //               is drawn as a "Bixin" card. There is no separate payments list.
         // totalRevenue: persistent number = cash sales + collected debt payments
+        // stock:        { "sarreen": { name, opening, bought, sold, avgCost } }
+        //               Remaining = opening + bought - sold
+        // purchases:    [{ id, item, key, qty, unitCost, total, supplier, opening, date, time }]
+        // expenses:     [{ id, category, desc, amount, date, time }]
+        // cogsCents:    persistent cost of goods sold (in cents), recognized when revenue is recognized
         let cashSales = loadJSON('ganacsi_cash', []);
         let customers = loadJSON('ganacsi_customers', {});
         let totalRevenue = parseFloat(localStorage.getItem('ganacsi_revenue')) || 0;
+        let stock = loadJSON('ganacsi_stock', {});
+        let purchases = loadJSON('ganacsi_purchases', []);
+        let expenses = loadJSON('ganacsi_expenses', []);
+        let cogsCents = parseInt(localStorage.getItem('ganacsi_cogs'), 10) || 0;
 
         const form = document.getElementById('record-form');
         const typeEl = document.getElementById('type');
@@ -442,10 +624,59 @@
         const datalistEl = document.getElementById('unpaid-items');
         const paymentHintEl = document.getElementById('payment-hint');
 
+        const stockFieldsEl = document.getElementById('stock-fields');
+        const stockSelectEl = document.getElementById('stock-item');
+        const qtyWrapEl = document.getElementById('qty-wrap');
+        const qtyEl = document.getElementById('qty');
+        const stockHintEl = document.getElementById('stock-hint');
+
+        const purchaseForm = document.getElementById('purchase-form');
+        const pTypeEl = document.getElementById('p-type');
+        const pItemEl = document.getElementById('p-item');
+        const pQtyEl = document.getElementById('p-qty');
+        const pCostEl = document.getElementById('p-cost');
+        const pSupplierEl = document.getElementById('p-supplier');
+        const pTotalHintEl = document.getElementById('p-total-hint');
+        const stockNamesEl = document.getElementById('stock-names');
+        const purchasesListEl = document.getElementById('purchases-list');
+        const purchasesSummaryEl = document.getElementById('purchases-summary');
+        const inventoryListEl = document.getElementById('inventory-list');
+        const stockSummaryEl = document.getElementById('stock-summary');
+
+        const expenseForm = document.getElementById('expense-form');
+        const eCategoryEl = document.getElementById('e-category');
+        const eDescEl = document.getElementById('e-desc');
+        const eAmountEl = document.getElementById('e-amount');
+        const expensesListEl = document.getElementById('expenses-list');
+        const plCardEl = document.getElementById('pl-card');
+
+        const EXP_CATS = {
+            rent: 'Kirada Dukaanka',
+            electricity: 'Koronto',
+            salary: 'Mushaharka Shaqaalaha',
+            transport: 'Gaadiid',
+            water: 'Biyo',
+            internet: 'Internet / Telefoon',
+            other: 'Kale'
+        };
+
         function saveData() {
             localStorage.setItem('ganacsi_cash', JSON.stringify(cashSales));
             localStorage.setItem('ganacsi_customers', JSON.stringify(customers));
             localStorage.setItem('ganacsi_revenue', String(totalRevenue));
+            localStorage.setItem('ganacsi_stock', JSON.stringify(stock));
+            localStorage.setItem('ganacsi_purchases', JSON.stringify(purchases));
+            localStorage.setItem('ganacsi_expenses', JSON.stringify(expenses));
+            localStorage.setItem('ganacsi_cogs', String(cogsCents));
+        }
+
+        // ---------- Stock helpers ----------
+        function stockRemaining(it) {
+            return r3((it.opening || 0) + (it.bought || 0) - (it.sold || 0));
+        }
+
+        function stockValueCents(it) {
+            return Math.round(Math.max(stockRemaining(it), 0) * (it.avgCost || 0) * 100);
         }
 
         // ---------- Debt item helpers ----------
@@ -480,6 +711,7 @@
 
         // Applies a payment to a customer's items, oldest first.
         // descKey = normalized description to match, or null to match any unpaid item.
+        // Also recognizes the matching share of the item's cost of goods (COGS).
         // Returns the cents that could not be applied.
         function applyToItems(cust, descKey, cents, date, time) {
             for (const item of cust.items) {
@@ -488,9 +720,14 @@
                 const rem = remainingCents(item);
                 if (rem <= 0) continue;
                 const take = Math.min(rem, cents);
-                item.paid = (toCents(item.paid) + take) / 100;
+                const amtC = toCents(item.amount);
+                const oldPaid = toCents(item.paid);
+                item.paid = (oldPaid + take) / 100;
                 item.paidDate = date;
                 item.paidTime = time;
+                if (item.cogs && amtC > 0) {
+                    cogsCents += Math.round(item.cogs * (oldPaid + take) / amtC) - Math.round(item.cogs * oldPaid / amtC);
+                }
                 cents -= take;
             }
             return cents;
@@ -520,7 +757,7 @@
             if (changed) saveData();
         }
 
-        // Fills the suggestion list with the typed customer's unpaid items
+        // ---------- Sales form: payment suggestions + stock link ----------
         function refreshSuggestions() {
             datalistEl.innerHTML = '';
             const isPayment = typeEl.value === 'payment';
@@ -538,8 +775,63 @@
             });
         }
 
+        // Rebuilds the stock dropdown, keeping the current choice if still valid
+        function refreshItemSelect() {
+            const cur = stockSelectEl.value;
+            stockSelectEl.innerHTML = '';
+            const none = document.createElement('option');
+            none.value = '';
+            none.textContent = '— Alaab aan stock lahayn —';
+            stockSelectEl.appendChild(none);
+
+            Object.keys(stock).sort().forEach(k => {
+                const it = stock[k];
+                const rem = stockRemaining(it);
+                const o = document.createElement('option');
+                o.value = k;
+                o.textContent = it.name + ' (' + fmtQty(rem) + ' hadhay)';
+                if (rem <= 0) o.disabled = true;
+                stockSelectEl.appendChild(o);
+            });
+            stockSelectEl.value = (cur && stock[cur] && stockRemaining(stock[cur]) > 0) ? cur : '';
+        }
+
+        function toggleStockFields() {
+            const show = typeEl.value !== 'payment' && Object.keys(stock).length > 0;
+            stockFieldsEl.hidden = !show;
+            if (!show) stockSelectEl.value = '';
+        }
+
+        function refreshStockHint() {
+            const it = stock[stockSelectEl.value];
+            if (!it || stockFieldsEl.hidden) {
+                qtyWrapEl.hidden = true;
+                return;
+            }
+            qtyWrapEl.hidden = false;
+            stockHintEl.textContent = 'Stock hadhay: ' + fmtQty(stockRemaining(it)) +
+                ' • Kharashka celceliska: $' + (it.avgCost || 0).toFixed(2) + ' halkii unug. ' +
+                'Lacagta hoose = wadarta qiimaha iibka.';
+        }
+
+        function refreshFormExtras() {
+            refreshSuggestions();
+            refreshItemSelect();
+            toggleStockFields();
+            refreshStockHint();
+        }
+
+        function refreshStockNames() {
+            stockNamesEl.innerHTML = '';
+            Object.keys(stock).sort().forEach(k => {
+                const o = document.createElement('option');
+                o.value = stock[k].name;
+                stockNamesEl.appendChild(o);
+            });
+        }
+
         // ---------- Rendering ----------
-        function updateUI() {
+        function renderMainList() {
             listEl.innerHTML = '';
             const searchTerm = searchInput.value.toLowerCase();
 
@@ -553,13 +845,14 @@
             );
 
             filteredCash.slice().reverse().forEach(tx => {
+                const qtyTxt = (tx.stockKey && tx.qty) ? ' • 📦 ×' + fmtQty(tx.qty) : '';
                 const el = document.createElement('div');
                 el.className = 'sale-card';
                 el.innerHTML = `
                     <div style="display: flex; justify-content: space-between; align-items: center;">
                         <div>
                             <p style="font-weight: 600; color: #065f46;">🛒 ${escapeHtml(tx.customer)}: ${escapeHtml(tx.description)}</p>
-                            <span style="font-size: 10px; color: #64748b;">${escapeHtml(tx.date)} • ${escapeHtml(tx.time)} • Kaash</span>
+                            <span style="font-size: 10px; color: #64748b;">${escapeHtml(tx.date)} • ${escapeHtml(tx.time)} • Kaash${qtyTxt}</span>
                         </div>
                         <div style="display: flex; align-items: center; gap: 0.5rem;">
                             <span style="font-weight: bold; color: #059669;">$${tx.amount.toFixed(2)}</span>
@@ -582,13 +875,14 @@
                 cust.items.forEach(item => {
                     const rem = remainingCents(item);
                     const paidC = toCents(item.paid);
+                    const qtyTxt = (item.stockKey && item.qty) ? ' • 📦 ×' + fmtQty(item.qty) : '';
                     const delBtn = `<button type="button" class="del-btn" data-action="delete-item" data-key="${safeKey}" data-id="${escapeHtml(item.id)}">✕ Tirtir</button>`;
 
                     if (rem === 0) {
                         // Fully paid: the debt card itself becomes the Bixin card
                         rowsHtml += `
                             <div class="payment-row">
-                                <span>✅ Bixin: ${escapeHtml(item.desc)} — <b>$${item.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${escapeHtml(item.paidDate || item.date)} • ${escapeHtml(item.paidTime || item.time)})</span></span>
+                                <span>✅ Bixin: ${escapeHtml(item.desc)} — <b>$${item.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${escapeHtml(item.paidDate || item.date)} • ${escapeHtml(item.paidTime || item.time)}${qtyTxt})</span></span>
                                 ${delBtn}
                             </div>
                         `;
@@ -599,7 +893,7 @@
                             : '';
                         rowsHtml += `
                             <div class="item-row">
-                                <span>${escapeHtml(item.desc)} — <b>$${item.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${escapeHtml(item.date)} • ${escapeHtml(item.time)})</span>${partial}</span>
+                                <span>${escapeHtml(item.desc)} — <b>$${item.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${escapeHtml(item.date)} • ${escapeHtml(item.time)}${qtyTxt})</span>${partial}</span>
                                 ${delBtn}
                             </div>
                         `;
@@ -633,12 +927,148 @@
             if (listEl.children.length === 0) {
                 listEl.innerHTML = `<p class="text-center">Wali wax xisaab ah lama gelin ama waa la sifeeyay.</p>`;
             }
+        }
 
-            refreshSuggestions();
+        // Inventory ledger: Opening + Purchases - Sales = Remaining
+        function renderInventory() {
+            const keys = Object.keys(stock).sort();
+            let valueC = 0;
+            inventoryListEl.innerHTML = '';
+
+            keys.forEach(k => {
+                const it = stock[k];
+                const rem = stockRemaining(it);
+                valueC += stockValueCents(it);
+                const el = document.createElement('div');
+                el.className = 'stock-row';
+                el.innerHTML = `
+                    <div>
+                        <p class="stock-name">📦 ${escapeHtml(it.name)}</p>
+                        <p class="stock-eq">Bilow ${fmtQty(it.opening || 0)} + Iibsasho ${fmtQty(it.bought || 0)} − Iib ${fmtQty(it.sold || 0)} = <b>${fmtQty(rem)}</b></p>
+                        <p class="stock-meta">Kharash celcelis: $${(it.avgCost || 0).toFixed(2)}/unug • Qiimaha stock-ga: ${money(stockValueCents(it))}</p>
+                    </div>
+                    <div class="stock-right">
+                        <span class="stock-qty ${rem <= 0 ? 'low' : ''}">${fmtQty(rem)}</span>
+                        <button type="button" class="del-btn" data-action="delete-stock" data-key="${escapeHtml(k)}">✕</button>
+                    </div>
+                `;
+                inventoryListEl.appendChild(el);
+            });
+
+            if (keys.length === 0) {
+                inventoryListEl.innerHTML = `<p class="text-center">Wali alaab stock ah lama gelin. Ka bilow tabka 📥 Iibsasho.</p>`;
+            }
+            stockSummaryEl.textContent = 'Alaabta: ' + keys.length + ' • Qiimaha guud ee stock-ga: ' + money(valueC);
+        }
+
+        function renderPurchases() {
+            purchasesListEl.innerHTML = '';
+            let spentC = 0;
+
+            purchases.slice().reverse().forEach(p => {
+                const el = document.createElement('div');
+                el.className = 'buy-row';
+                el.innerHTML = `
+                    <div>
+                        <p style="font-weight:600; color:#5b21b6;">${p.opening ? '📋 Stock bilow' : '📥 Iibsasho'}: ${escapeHtml(p.item)}</p>
+                        <span style="font-size:10px; color:#64748b;">×${fmtQty(p.qty)} @ $${Number(p.unitCost).toFixed(2)} = <b>$${Number(p.total).toFixed(2)}</b> • ${escapeHtml(p.supplier || '—')} • ${escapeHtml(p.date)} ${escapeHtml(p.time)}</span>
+                    </div>
+                    <button type="button" class="del-btn" data-action="delete-purchase" data-id="${escapeHtml(p.id)}">✕</button>
+                `;
+                purchasesListEl.appendChild(el);
+            });
+            purchases.forEach(p => { if (!p.opening) spentC += toCents(p.total); });
+
+            if (purchases.length === 0) {
+                purchasesListEl.innerHTML = `<p class="text-center">Wali iibsasho lama gelin.</p>`;
+            }
+            purchasesSummaryEl.textContent = 'Wadarta lacagta iibsashada (aan ku jirin stock bilow): ' + money(spentC);
+        }
+
+        function renderExpenses() {
+            expensesListEl.innerHTML = '';
+            expenses.slice().reverse().forEach(e => {
+                const isPay = e.category === 'salary';
+                const el = document.createElement('div');
+                el.className = 'exp-row' + (isPay ? ' pay' : '');
+                el.innerHTML = `
+                    <div>
+                        <p style="font-weight:600; color:${isPay ? '#9d174d' : '#92400e'};">${isPay ? '👷' : '🧾'} ${escapeHtml(EXP_CATS[e.category] || 'Kale')}${e.desc ? ': ' + escapeHtml(e.desc) : ''}</p>
+                        <span style="font-size:10px; color:#64748b;">${escapeHtml(e.date)} • ${escapeHtml(e.time)}</span>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.4rem;">
+                        <b>$${Number(e.amount).toFixed(2)}</b>
+                        <button type="button" class="del-btn" data-action="delete-expense" data-id="${escapeHtml(e.id)}">✕</button>
+                    </div>
+                `;
+                expensesListEl.appendChild(el);
+            });
+            if (expenses.length === 0) {
+                expensesListEl.innerHTML = `<p class="text-center">Wali kharash lama gelin.</p>`;
+            }
+        }
+
+        // Net Profit = Total Revenue - (COGS + Operating Expenses + Payroll)
+        function renderPL() {
+            const revC = toCents(totalRevenue);
+            let opexC = 0, payC = 0;
+            expenses.forEach(e => {
+                if (e.category === 'salary') payC += toCents(e.amount);
+                else opexC += toCents(e.amount);
+            });
+            const grossC = revC - cogsCents;
+            const netC = revC - (cogsCents + opexC + payC);
+
+            let stockValC = 0;
+            Object.values(stock).forEach(it => { stockValC += stockValueCents(it); });
+            let spentC = 0;
+            purchases.forEach(p => { if (!p.opening) spentC += toCents(p.total); });
+
+            plCardEl.innerHTML = `
+                <div class="pl-line"><span>Wadarta Iibka (Total Revenue)</span><b>${money(revC)}</b></div>
+                <div class="pl-line"><span>− Kharashka alaabta la iibiyay (COGS)</span><b>${money(cogsCents)}</b></div>
+                <div class="pl-line strong"><span>Faa'iidada Guud (Gross Profit)</span><span>${moneySigned(grossC)}</span></div>
+                <div class="pl-line"><span>− Kharashka Shaqada (Operating)</span><b>${money(opexC)}</b></div>
+                <div class="pl-line"><span>− Mushaharka (Payroll)</span><b>${money(payC)}</b></div>
+                <div class="pl-net ${netC >= 0 ? 'profit' : 'loss'}">
+                    <span>${netC >= 0 ? '📈 Faa\'iidada Saafiga ah' : '📉 Khasaaraha Saafiga ah'}</span>
+                    <span>${moneySigned(netC)}</span>
+                </div>
+                <p class="pl-info">
+                    Wadarta iibsashada: ${money(spentC)} • Qiimaha stock-ga hadhay: ${money(stockValC)}<br>
+                    ⚠️ Iibka aan stock lagu xiri lahayn kharashkiisa lama xisaabin, sidaas darteed faa'iidadiisu way ka badnaan kartaa.
+                </p>
+            `;
+        }
+
+        function updateUI() {
+            renderMainList();
+            renderInventory();
+            renderPurchases();
+            renderExpenses();
+            renderPL();
+            refreshStockNames();
+            refreshFormExtras();
             saveData();
         }
 
-        // ---------- Add records ----------
+        // ---------- Tabs ----------
+        function showTab(name) {
+            ['main', 'buy', 'stock', 'acct'].forEach(t => {
+                document.getElementById('tab-' + t).hidden = (t !== name);
+            });
+            document.querySelectorAll('.tab-btn').forEach(b => {
+                b.classList.toggle('active', b.dataset.tab === name);
+            });
+            window.scrollTo(0, 0);
+        }
+        document.querySelectorAll('.tab-btn').forEach(b => {
+            b.addEventListener('click', () => showTab(b.dataset.tab));
+        });
+
+        // ---------- Add records: sales / debts / payments ----------
+        let lastAutoDesc = '';
+
         form.addEventListener('submit', (e) => {
             e.preventDefault();
 
@@ -655,6 +1085,29 @@
 
             if (!customerName || !description || !(amount > 0)) return;
 
+            // ---- Stock link (sale / debt only) ----
+            let stockKey = '', qty = 0, cogs = 0, stockItem = null;
+            if (type !== 'payment' && stockSelectEl.value) {
+                stockKey = stockSelectEl.value;
+                stockItem = stock[stockKey];
+                if (!stockItem) {
+                    alert('⚠️ Alaabtan stock-ga kuma jirto.');
+                    return;
+                }
+                qty = r3(parseFloat(qtyEl.value));
+                if (!(qty > 0)) {
+                    alert('⚠️ Fadlan geli tirada alaabta la iibiyay.');
+                    return;
+                }
+                const remaining = stockRemaining(stockItem);
+                if (qty > remaining) {
+                    alert('⚠️ Stock kuma filna!\n\n"' + stockItem.name + '" wuxuu hadhay: ' + fmtQty(remaining) +
+                          '\nTirada aad gelisay: ' + fmtQty(qty) + '\n\nIibka lama kaydin.');
+                    return;
+                }
+                cogs = Math.round(qty * (stockItem.avgCost || 0) * 100);
+            }
+
             const now = new Date();
             const date = now.toLocaleDateString();
             const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
@@ -662,14 +1115,21 @@
             const key = normalize(customerName);
 
             if (type === 'sale') {
-                cashSales.push({ id, customer: customerName, description, amount, date, time });
+                cashSales.push({ id, customer: customerName, description, amount, date, time, stockKey, qty, cogs });
                 totalRevenue += amount;
+                if (stockItem) {
+                    stockItem.sold = r3((stockItem.sold || 0) + qty);
+                    cogsCents += cogs;   // cash sale: cost recognized immediately
+                }
 
             } else if (type === 'debt') {
                 if (!customers[key]) {
                     customers[key] = { name: customerName, items: [] };
                 }
-                customers[key].items.push({ id, desc: description, amount, paid: 0, date, time });
+                customers[key].items.push({ id, desc: description, amount, paid: 0, date, time, stockKey, qty, cogs });
+                if (stockItem) {
+                    stockItem.sold = r3((stockItem.sold || 0) + qty);   // goods leave the shop now; cost recognized as it is paid
+                }
 
             } else if (type === 'payment') {
                 // ---- STRICT PAYMENT VALIDATION ----
@@ -706,12 +1166,109 @@
             }
 
             form.reset();
+            lastAutoDesc = '';
             updateUI();
         });
 
         searchInput.addEventListener('input', updateUI);
-        typeEl.addEventListener('change', refreshSuggestions);
+        typeEl.addEventListener('change', () => { refreshSuggestions(); toggleStockFields(); refreshStockHint(); });
         customerEl.addEventListener('input', refreshSuggestions);
+        stockSelectEl.addEventListener('change', () => {
+            const it = stock[stockSelectEl.value];
+            if (it && (descriptionEl.value.trim() === '' || descriptionEl.value === lastAutoDesc)) {
+                descriptionEl.value = it.name;
+                lastAutoDesc = it.name;
+            }
+            refreshStockHint();
+        });
+
+        // ---------- Add records: purchases (stock-in) ----------
+        function updatePurchaseTotalHint() {
+            const q = parseFloat(pQtyEl.value);
+            const c = parseFloat(pCostEl.value);
+            if (q > 0 && c > 0) {
+                pTotalHintEl.hidden = false;
+                pTotalHintEl.textContent = 'Wadarta kharashka: $' + (Math.round(q * c * 100) / 100).toFixed(2);
+            } else {
+                pTotalHintEl.hidden = true;
+            }
+        }
+        pQtyEl.addEventListener('input', updatePurchaseTotalHint);
+        pCostEl.addEventListener('input', updatePurchaseTotalHint);
+
+        purchaseForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!subscriptionActive) {
+                alert('⛔ Isdiiwaangelintii waa dhammaatay.\nDhaqaaji furaha bisha si aad wax cusub u kaydiso.');
+                return;
+            }
+
+            const opening = pTypeEl.value === 'opening';
+            const name = pItemEl.value.trim().replace(/\s+/g, ' ');
+            const qty = r3(parseFloat(pQtyEl.value));
+            const unitCost = parseFloat(pCostEl.value);
+            const supplier = pSupplierEl.value.trim();
+
+            if (!name || !(qty > 0) || !(unitCost > 0)) return;
+            if (!opening && !supplier) {
+                alert('⚠️ Fadlan geli magaca alaab-qeybiyaha (Supplier).');
+                return;
+            }
+
+            const now = new Date();
+            const date = now.toLocaleDateString();
+            const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const id = '_' + Math.random().toString(36).slice(2, 11);
+            const key = normalize(name);
+
+            if (!stock[key]) {
+                stock[key] = { name, opening: 0, bought: 0, sold: 0, avgCost: 0 };
+            }
+            const it = stock[key];
+
+            // Weighted average cost
+            const before = Math.max(stockRemaining(it), 0);
+            const newAvg = before > 0 ? (before * (it.avgCost || 0) + qty * unitCost) / (before + qty) : unitCost;
+            it.avgCost = Math.round(newAvg * 10000) / 10000;
+
+            // Saving a purchase increases stock automatically
+            if (opening) it.opening = r3((it.opening || 0) + qty);
+            else it.bought = r3((it.bought || 0) + qty);
+
+            purchases.push({
+                id, item: it.name, key, qty, unitCost,
+                total: Math.round(qty * unitCost * 100) / 100,
+                supplier, opening, date, time
+            });
+
+            purchaseForm.reset();
+            pTotalHintEl.hidden = true;
+            updateUI();
+        });
+
+        // ---------- Add records: expenses & payroll ----------
+        expenseForm.addEventListener('submit', (e) => {
+            e.preventDefault();
+            if (!subscriptionActive) {
+                alert('⛔ Isdiiwaangelintii waa dhammaatay.\nDhaqaaji furaha bisha si aad wax cusub u kaydiso.');
+                return;
+            }
+            const amount = parseFloat(eAmountEl.value);
+            if (!(amount > 0)) return;
+
+            const now = new Date();
+            expenses.push({
+                id: '_' + Math.random().toString(36).slice(2, 11),
+                category: eCategoryEl.value,
+                desc: eDescEl.value.trim(),
+                amount,
+                date: now.toLocaleDateString(),
+                time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })
+            });
+
+            expenseForm.reset();
+            updateUI();
+        });
 
         // ---------- Actions ----------
         function deleteCashSale(id) {
@@ -720,6 +1277,13 @@
                 // A cash sale entered by mistake is removed from revenue too
                 const removed = cashSales.splice(index, 1)[0];
                 totalRevenue = Math.max(totalRevenue - removed.amount, 0);
+
+                // ...and its goods go back to stock, its cost leaves COGS
+                if (removed.stockKey && stock[removed.stockKey]) {
+                    const it = stock[removed.stockKey];
+                    it.sold = Math.max(r3((it.sold || 0) - (removed.qty || 0)), 0);
+                }
+                if (removed.cogs) cogsCents = Math.max(cogsCents - removed.cogs, 0);
                 updateUI();
             }
         }
@@ -729,6 +1293,7 @@
         //    leaves the balance. Revenue is never changed.
         //  - Fully paid (Bixin): asks for confirmation. Nothing changes in balance
         //    or revenue, because it was already counted when paid.
+        //  - Unpaid stock-linked debt: also asks whether to return the goods to stock.
         function deleteCustomerItem(key, id) {
             const cust = customers[key];
             if (!cust) return;
@@ -738,6 +1303,7 @@
 
             const item = cust.items[idx];
             const rem = remainingCents(item);
+            let restoreStock = false;
 
             if (rem > 0) {
                 const ok = confirm(
@@ -745,12 +1311,24 @@
                     '\n\nHaddii aad tirtirto, waxay ka baaba\'aysaa deynta ' + cust.name + '.\n\nMa hubtaa inaad tirtirto?'
                 );
                 if (!ok) return;
+
+                if (item.stockKey && stock[item.stockKey] && item.qty > 0 && toCents(item.paid) === 0) {
+                    restoreStock = confirm(
+                        '📦 Ma ku soo celinaysaa alaabta stock-ga?\n\n"' + stock[item.stockKey].name + '" × ' + fmtQty(item.qty) +
+                        '\n\nOK = ku soo celi stock-ga\nCancel = ha soo celin'
+                    );
+                }
             } else {
                 const ok = confirm(
                     'Bixintan waa la sifeeyay:\n"' + item.desc + '" — ' + money(toCents(item.amount)) +
                     '\n\nTirtirkeedu ma beddelayo deynta iyo iibka guud.\n\nMa hubtaa inaad tirtirto diiwaankan?'
                 );
                 if (!ok) return;
+            }
+
+            if (restoreStock) {
+                const it = stock[item.stockKey];
+                it.sold = Math.max(r3((it.sold || 0) - item.qty), 0);
             }
 
             // Removes the card only. Revenue is NEVER changed here.
@@ -772,7 +1350,7 @@
 
         // ---------- Separate deletion: Iibka Guud (Total Sales) ----------
         // Resets total sales to $0.00 and removes the cash sale cards.
-        // Customer debts, balances and Bixin cards are NOT touched.
+        // Also resets COGS so profit stays consistent. Stock and debts are NOT touched.
         function clearSales() {
             if (totalRevenue <= 0 && cashSales.length === 0) {
                 alert('Iibka guud horay ayuu u ahaa $0.00. Wax la tirtiro ma jiraan.');
@@ -780,33 +1358,98 @@
             }
             const ok = confirm(
                 '⚠️ Digniin!\n\nWaxaad tirtirayaa Iibka Guud: $' + totalRevenue.toFixed(2) +
-                '\n\nDiiwaanka iibka kaashka ah ayaa sidoo kale la tirtirayaa.' +
-                '\nDeynta maqan waa sidii oo kale (ma isbeddelayso).' +
+                '\n\nDiiwaanka iibka kaashka ah ayaa sidoo kale la tirtirayaa, kharashka alaabta la iibiyay (COGS) waxaa loo celinayaa $0.' +
+                '\nDeynta maqan iyo stock-ga waa sidii oo kale (ma isbeddelayaan).' +
                 '\n\nMa hubtaa inaad tirtirto Iibka Guud?'
             );
             if (!ok) return;
 
             totalRevenue = 0;
+            cogsCents = 0;
             cashSales = [];
             updateUI();
         }
 
         // ---------- Separate deletion: Deynta Maqan (Total Debt) ----------
         // Removes all customer debt cards. Total sales and cash sales are NOT touched.
+        // Goods from removed unpaid debts are NOT returned to stock.
         function clearDebts() {
             if (Object.keys(customers).length === 0) {
                 alert('Deynta maqan horay ayay u ahayd $0.00. Wax la tirtiro ma jiraan.');
                 return;
             }
+            let hasLinkedUnpaid = false;
+            Object.values(customers).forEach(c => {
+                c.items.forEach(i => { if (i.stockKey && remainingCents(i) > 0) hasLinkedUnpaid = true; });
+            });
             const ok = confirm(
                 '⚠️ Digniin!\n\nWaxaad tirtirayaa dhammaan Deynta Maqan: ' + money(getTotalDebtCents()) +
                 '\n\nDhammaan kaadhadhka macmiilka ayaa la tirtirayaa.' +
                 '\nIibka Guud waa sidii oo kale (ma isbeddelayso).' +
+                (hasLinkedUnpaid ? '\nAlaabta stock-ga ee deymahan lagu iibiyay looma soo celinayo stock-ga.' : '') +
                 '\n\nMa hubtaa inaad tirtirto Deynta Maqan?'
             );
             if (!ok) return;
 
             customers = {};
+            updateUI();
+        }
+
+        // ---------- Delete: purchase (reverses its stock) ----------
+        function deletePurchase(id) {
+            const idx = purchases.findIndex(p => p.id === id);
+            if (idx === -1) return;
+            const p = purchases[idx];
+            const it = stock[p.key];
+
+            let take = 0;
+            const field = p.opening ? 'opening' : 'bought';
+            if (it) {
+                take = Math.min(it[field] || 0, p.qty);
+                if (r3(stockRemaining(it) - take) < 0) {
+                    alert('⚠️ Lama tirtiri karo!\n\nAlaabtan qayb ka mid ah waa la iibiyay, stock-gana ma filna si laga jaro ' + fmtQty(take) + '.');
+                    return;
+                }
+            }
+
+            const ok = confirm(
+                '⚠️ Digniin!\n\nWaxaad tirtirayaa iibsashada:\n"' + p.item + '" × ' + fmtQty(p.qty) + ' — $' + Number(p.total).toFixed(2) +
+                (it ? '\n\nStock-ga waxaa laga jarayaa ' + fmtQty(take) + '.' : '') +
+                '\n\nMa hubtaa?'
+            );
+            if (!ok) return;
+
+            if (it) it[field] = r3((it[field] || 0) - take);
+            purchases.splice(idx, 1);
+            updateUI();
+        }
+
+        // ---------- Delete: stock item (inventory row) ----------
+        function deleteStockItem(key) {
+            const it = stock[key];
+            if (!it) return;
+            const ok = confirm(
+                '⚠️ Digniin!\n\nWaxaad ka saarayaa stock-ga:\n"' + it.name + '" (hadhay: ' + fmtQty(stockRemaining(it)) + ')' +
+                '\n\nDiiwaanka iibsashada waa hadhayaa, iibka iyo deymuhuna ma isbeddelayaan.' +
+                '\n\nMa hubtaa inaad tirtirto?'
+            );
+            if (!ok) return;
+            delete stock[key];
+            updateUI();
+        }
+
+        // ---------- Delete: expense ----------
+        function deleteExpense(id) {
+            const idx = expenses.findIndex(e => e.id === id);
+            if (idx === -1) return;
+            const e = expenses[idx];
+            const ok = confirm(
+                '⚠️ Digniin!\n\nWaxaad tirtirayaa kharashka:\n' + (EXP_CATS[e.category] || 'Kale') +
+                (e.desc ? ' — ' + e.desc : '') + ' — $' + Number(e.amount).toFixed(2) +
+                '\n\nFaa\'iidada saafiga ah ayaa is beddelaysa.\n\nMa hubtaa?'
+            );
+            if (!ok) return;
+            expenses.splice(idx, 1);
             updateUI();
         }
 
@@ -819,6 +1462,21 @@
             if (action === 'delete-cash') deleteCashSale(id);
             else if (action === 'delete-item') deleteCustomerItem(key, id);
             else if (action === 'settle') settleCustomer(key);
+        });
+
+        purchasesListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action="delete-purchase"]');
+            if (btn) deletePurchase(btn.dataset.id);
+        });
+
+        inventoryListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action="delete-stock"]');
+            if (btn) deleteStockItem(btn.dataset.key);
+        });
+
+        expensesListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action="delete-expense"]');
+            if (btn) deleteExpense(btn.dataset.id);
         });
 
         document.getElementById('clear-sales-btn').addEventListener('click', clearSales);
