@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="google" content="notranslate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xisaabi - Sales & Debt Tracker</title>
+    <title>Xisaabta Ganacsigaaga - Sales & Debt Tracker</title>
 
     <!-- Inline Native Styles for 100% Offline Reliability -->
     <style>
@@ -79,7 +79,6 @@
         .stock-right { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }
         .stock-qty { font-weight: 800; font-size: 1.15rem; color: #1d4ed8; }
         .stock-qty.low { color: #e11d48; }
-        .buy-row { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 0.5rem; padding: 0.6rem 0.75rem; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
         .exp-row { background: #fffbeb; border: 1px solid #fde68a; border-radius: 0.5rem; padding: 0.6rem 0.75rem; font-size: 0.8rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
         .exp-row.pay { background: #fdf2f8; border-color: #fbcfe8; }
         .sub-note { font-size: 0.72rem; color: #64748b; margin-bottom: 0.6rem; }
@@ -90,6 +89,25 @@
         .pl-net.profit { background: #ecfdf5; border: 2px solid #34d399; color: #047857; }
         .pl-net.loss { background: #fff1f2; border: 2px solid #fb7185; color: #be123c; }
         .pl-info { font-size: 0.72rem; color: #64748b; margin-top: 0.6rem; line-height: 1.5; }
+
+        /* ----- Supplier ledger (grouped purchases) ----- */
+        .sup-search { margin-bottom: 0.6rem; }
+        .sup-card { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 0.6rem; overflow: hidden; flex-shrink: 0; }
+        .sup-head { width: 100%; display: flex; align-items: center; gap: 0.5rem; background: none; border: none; text-align: left; padding: 0.65rem 0.75rem; cursor: pointer; color: inherit; }
+        .sup-head:active { background: #ede9fe; }
+        .sup-chev { flex-shrink: 0; width: 1rem; font-size: 0.8rem; color: #7c3aed; transition: transform 0.15s; }
+        .sup-card.open .sup-chev { transform: rotate(90deg); }
+        .sup-main { flex: 1; min-width: 0; }
+        .sup-name { font-weight: 700; color: #5b21b6; font-size: 0.9rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .sup-meta { font-size: 0.68rem; color: #64748b; margin-top: 0.1rem; }
+        .sup-total { flex-shrink: 0; font-weight: 800; font-size: 0.95rem; color: #4c1d95; }
+        .sup-body { border-top: 1px solid #ddd6fe; background: white; padding: 0.3rem 0.75rem 0.5rem; }
+        .sup-line { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; padding: 0.45rem 0; border-bottom: 1px dashed #e9e5ff; font-size: 0.78rem; }
+        .sup-line:last-child { border-bottom: none; }
+        .sup-line .it { font-weight: 600; color: #334155; }
+        .sup-line .sub { font-size: 0.68rem; color: #64748b; margin-top: 0.1rem; }
+        .sup-line .amt { font-weight: 700; color: #4c1d95; }
+        .sup-right { display: flex; align-items: center; gap: 0.2rem; flex-shrink: 0; }
     </style>
 
     <!-- PWA Manifest, Icons & Service Worker Registration -->
@@ -240,16 +258,25 @@
                     </div>
                     <div>
                         <label>Magaca Alaab-qeybiyaha (Supplier Name)</label>
-                        <input type="text" id="p-supplier" placeholder="Tusaale: Cali Wholesale" autocomplete="off">
+                        <input type="text" id="p-supplier" list="supplier-names" placeholder="Tusaale: Cali Wholesale" autocomplete="off">
+                        <datalist id="supplier-names"></datalist>
                     </div>
                     <button type="submit" class="save-btn" id="p-save-btn">Kaydi Iibsashada (Save)</button>
                 </form>
             </div>
 
             <div class="card">
-                <h2><span>Diiwaanka Iibsashada</span></h2>
+                <h2><span>Diiwaanka Alaab-qeybiyayaasha</span></h2>
+
+                <!-- Search by supplier name or item type -->
+                <div class="sup-search">
+                    <input type="search" id="purchase-search" placeholder="🔍 Raadi alaab-qeybiye ama alaab..." autocomplete="off">
+                </div>
+
                 <p class="sub-note" id="purchases-summary"></p>
-                <div id="purchases-list" class="list-container">
+
+                <!-- Purchases grouped by supplier -->
+                <div id="purchases-list" class="list-container" style="max-height: 32rem;">
                     <p class="text-center">Wali iibsasho lama gelin.</p>
                 </div>
             </div>
@@ -484,7 +511,7 @@
         }
 
         // Read-only mode: disables ALL record forms (sales/debt, purchases, expenses).
-        // Viewing, deleting and settling keep working.
+        // Viewing, searching, deleting and settling keep working.
         function applyReadOnlyMode() {
             if (subscriptionActive) return;
             document.querySelectorAll('.lock-form input, .lock-form select').forEach(el => { el.disabled = true; });
@@ -617,6 +644,7 @@
         // stock:        { "sarreen": { name, opening, bought, sold, avgCost } }
         //               Remaining = opening + bought - sold
         // purchases:    [{ id, item, key, qty, unitCost, total, supplier, opening, date, time }]
+        //               The Iibsasho tab groups these by supplier name for display only.
         // expenses:     [{ id, category, desc, amount, date, time }]
         // cogsAdjCents: small persistent adjustment (cents) that keeps COGS correct after records
         //               are cleared or removed without returning goods to stock.
@@ -657,6 +685,8 @@
         const pSupplierEl = document.getElementById('p-supplier');
         const pTotalHintEl = document.getElementById('p-total-hint');
         const stockNamesEl = document.getElementById('stock-names');
+        const supplierNamesEl = document.getElementById('supplier-names');
+        const purchaseSearchEl = document.getElementById('purchase-search');
         const purchasesListEl = document.getElementById('purchases-list');
         const purchasesSummaryEl = document.getElementById('purchases-summary');
         const inventoryListEl = document.getElementById('inventory-list');
@@ -933,6 +963,20 @@
             });
         }
 
+        // Suggests supplier names already used, so one supplier never splits into two rows
+        function refreshSupplierNames() {
+            supplierNamesEl.innerHTML = '';
+            const seen = {};
+            purchases.forEach(p => {
+                const k = normalize(p.supplier || '');
+                if (!k || seen[k]) return;
+                seen[k] = true;
+                const o = document.createElement('option');
+                o.value = p.supplier;
+                supplierNamesEl.appendChild(o);
+            });
+        }
+
         // ---------- Rendering ----------
         function renderMainList() {
             listEl.innerHTML = '';
@@ -1063,28 +1107,134 @@
             stockSummaryEl.textContent = 'Alaabta: ' + keys.length + ' • Qiimaha guud ee stock-ga: ' + money(valueC);
         }
 
+        // ---------- Supplier ledger: purchases grouped by supplier ----------
+        // supplierOpen[key] = true/false once the user taps a row. Undefined = default
+        // (closed, except when a search leaves exactly one supplier, which opens itself).
+        const OPENING_GROUP_KEY = '__opening__';
+        const OPENING_GROUP_NAME = 'Stock bilow (supplier la\'aan)';
+        let supplierOpen = {};
+
+        function supplierKeyOf(p) {
+            const k = normalize(p.supplier || '');
+            return k ? k : OPENING_GROUP_KEY;
+        }
+
         function renderPurchases() {
             purchasesListEl.innerHTML = '';
-            let spentC = 0;
+            const q = normalize(purchaseSearchEl.value);
 
-            purchases.slice().reverse().forEach(p => {
-                const el = document.createElement('div');
-                el.className = 'buy-row';
-                el.innerHTML = `
-                    <div>
-                        <p style="font-weight:600; color:#5b21b6;">${p.opening ? '📋 Stock bilow' : '📥 Iibsasho'}: ${escapeHtml(p.item)}</p>
-                        <span style="font-size:10px; color:#64748b;">×${fmtQty(p.qty)} @ $${Number(p.unitCost).toFixed(2)} = <b>$${Number(p.total).toFixed(2)}</b> • ${escapeHtml(p.supplier || '—')} • ${escapeHtml(p.date)} ${escapeHtml(p.time)}</span>
-                    </div>
-                    <button type="button" class="del-btn" data-action="delete-purchase" data-id="${escapeHtml(p.id)}">✕</button>
-                `;
-                purchasesListEl.appendChild(el);
+            // 1. Group every purchase by supplier (newest purchase = highest index)
+            const groups = {};
+            purchases.forEach((p, idx) => {
+                const gk = supplierKeyOf(p);
+                if (!groups[gk]) {
+                    groups[gk] = {
+                        key: gk,
+                        name: gk === OPENING_GROUP_KEY ? OPENING_GROUP_NAME : (p.supplier || '').trim(),
+                        all: [],
+                        lastIdx: -1
+                    };
+                }
+                groups[gk].all.push(p);
+                groups[gk].lastIdx = idx;
             });
-            purchases.forEach(p => { if (!p.opening) spentC += toCents(p.total); });
 
+            // 2. Apply the search: supplier name match keeps all its purchases,
+            //    otherwise only purchases whose item name matches are kept
+            const rows = [];
+            Object.values(groups).forEach(g => {
+                const nameMatch = !!q && normalize(g.name).includes(q);
+                let shown = g.all;
+                if (q && !nameMatch) {
+                    shown = g.all.filter(p => normalize(p.item).includes(q));
+                }
+                if (shown.length === 0) return;
+
+                let spentC = 0, openC = 0, units = 0, hasOpening = false;
+                const types = {};
+                shown.forEach(p => {
+                    const c = toCents(p.total);
+                    if (p.opening) { openC += c; hasOpening = true; } else { spentC += c; }
+                    units += Number(p.qty) || 0;
+                    types[normalize(p.item)] = true;
+                });
+
+                rows.push({
+                    key: g.key, name: g.name, shown, nameMatch, lastIdx: g.lastIdx,
+                    totalC: spentC + openC, units: r3(units), hasOpening,
+                    typeCount: Object.keys(types).length
+                });
+            });
+
+            // 3. Sort: name matches first, then the most recently used supplier
+            rows.sort((a, b) => {
+                if (a.nameMatch !== b.nameMatch) return a.nameMatch ? -1 : 1;
+                return b.lastIdx - a.lastIdx;
+            });
+
+            // 4. Summary line (all-time money spent, opening stock left out)
+            let allSpentC = 0;
+            purchases.forEach(p => { if (!p.opening) allSpentC += toCents(p.total); });
+            const supplierCount = Object.keys(groups).length;
+            purchasesSummaryEl.textContent = q
+                ? 'Natiijo: ' + rows.length + ' alaab-qeybiye • Wadarta iibsashada (aan ku jirin stock bilow): ' + money(allSpentC)
+                : 'Alaab-qeybiyayaal: ' + supplierCount + ' • Wadarta iibsashada (aan ku jirin stock bilow): ' + money(allSpentC);
+
+            // 5. Empty states
             if (purchases.length === 0) {
                 purchasesListEl.innerHTML = `<p class="text-center">Wali iibsasho lama gelin.</p>`;
+                return;
             }
-            purchasesSummaryEl.textContent = 'Wadarta lacagta iibsashada (aan ku jirin stock bilow): ' + money(spentC);
+            if (rows.length === 0) {
+                purchasesListEl.innerHTML = `<p class="text-center">Wax natiijo ah lama helin.</p>`;
+                return;
+            }
+
+            // 6. Draw supplier rows (tap to open the detail list)
+            const autoOpen = !!q && rows.length === 1;
+            rows.forEach(r => {
+                const open = (supplierOpen[r.key] === undefined) ? autoOpen : supplierOpen[r.key];
+                const safeKey = escapeHtml(r.key);
+                const icon = r.key === OPENING_GROUP_KEY ? '📋' : '🏭';
+
+                let bodyHtml = '';
+                if (open) {
+                    const detail = r.shown.slice().reverse();   // newest first
+                    bodyHtml = '<div class="sup-body">';
+                    detail.forEach(p => {
+                        bodyHtml += `
+                            <div class="sup-line">
+                                <div>
+                                    <div class="it">${p.opening ? '📋 ' : ''}${escapeHtml(p.item)}</div>
+                                    <div class="sub">×${fmtQty(p.qty)} @ $${Number(p.unitCost).toFixed(2)} • ${escapeHtml(p.date)} ${escapeHtml(p.time)}</div>
+                                </div>
+                                <div class="sup-right">
+                                    <span class="amt">$${Number(p.total).toFixed(2)}</span>
+                                    <button type="button" class="del-btn" data-action="delete-purchase" data-id="${escapeHtml(p.id)}">✕</button>
+                                </div>
+                            </div>`;
+                    });
+                    bodyHtml += '</div>';
+                }
+
+                const meta = r.shown.length + ' iibsasho • ' + r.typeCount + ' nooc • ' + fmtQty(r.units) + ' unug' +
+                             (r.hasOpening && r.key !== OPENING_GROUP_KEY ? ' • 📋 bilow' : '');
+
+                const card = document.createElement('div');
+                card.className = 'sup-card' + (open ? ' open' : '');
+                card.innerHTML = `
+                    <button type="button" class="sup-head" data-action="toggle-supplier" data-key="${safeKey}" data-open="${open ? '1' : '0'}">
+                        <span class="sup-chev">▶</span>
+                        <span class="sup-main">
+                            <span class="sup-name" style="display:block;">${icon} ${escapeHtml(r.name)}</span>
+                            <span class="sup-meta" style="display:block;">${escapeHtml(meta)}</span>
+                        </span>
+                        <span class="sup-total">${money(r.totalC)}</span>
+                    </button>
+                    ${bodyHtml}
+                `;
+                purchasesListEl.appendChild(card);
+            });
         }
 
         function renderExpenses() {
@@ -1176,6 +1326,7 @@
             renderExpenses();
             renderPL();
             refreshStockNames();
+            refreshSupplierNames();
             refreshFormExtras();
             saveData();
         }
@@ -1313,6 +1464,7 @@
         });
 
         searchInput.addEventListener('input', updateUI);
+        purchaseSearchEl.addEventListener('input', renderPurchases);
         typeEl.addEventListener('change', () => { refreshSuggestions(); toggleStockFields(); refreshStockHint(); });
         customerEl.addEventListener('input', refreshSuggestions);
         qtyEl.addEventListener('input', refreshAmountUI);
@@ -1351,7 +1503,7 @@
             const name = pItemEl.value.trim().replace(/\s+/g, ' ');
             const qty = r3(parseFloat(pQtyEl.value));
             const unitCost = parseFloat(pCostEl.value);
-            const supplier = pSupplierEl.value.trim();
+            const supplier = pSupplierEl.value.trim().replace(/\s+/g, ' ');
 
             if (!name || !(qty > 0) || !(unitCost > 0)) return;
             if (!opening && !supplier) {
@@ -1668,9 +1820,18 @@
             else if (action === 'settle') settleCustomer(key);
         });
 
+        // Supplier ledger: tap a supplier row to open/close it, or delete a purchase line
         purchasesListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-action="delete-purchase"]');
-            if (btn) deletePurchase(btn.dataset.id);
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const { action, id, key, open } = btn.dataset;
+
+            if (action === 'toggle-supplier') {
+                supplierOpen[key] = (open !== '1');
+                renderPurchases();
+            } else if (action === 'delete-purchase') {
+                deletePurchase(id);
+            }
         });
 
         inventoryListEl.addEventListener('click', (e) => {
