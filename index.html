@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="google" content="notranslate">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Xisaabta Ganacsigaaga - Sales & Debt Tracker</title>
+    <title>Xisaabi - Sales & Debt Tracker</title>
 
     <!-- Inline Native Styles for 100% Offline Reliability -->
     <style>
@@ -85,6 +85,7 @@
         .sub-note { font-size: 0.72rem; color: #64748b; margin-bottom: 0.6rem; }
         .pl-line { display: flex; justify-content: space-between; align-items: center; font-size: 0.82rem; padding: 0.4rem 0; border-bottom: 1px dashed #e2e8f0; color: #334155; }
         .pl-line.strong { font-weight: 700; border-bottom: 1px solid #cbd5e1; }
+        .pl-sub { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.72rem; color: #64748b; padding: 0.2rem 0 0.2rem 0.8rem; }
         .pl-net { margin-top: 0.6rem; padding: 0.8rem; border-radius: 0.6rem; display: flex; justify-content: space-between; align-items: center; font-weight: 800; font-size: 1.05rem; }
         .pl-net.profit { background: #ecfdf5; border: 2px solid #34d399; color: #047857; }
         .pl-net.loss { background: #fff1f2; border: 2px solid #fb7185; color: #be123c; }
@@ -556,6 +557,12 @@
         // Question shown before deleting anything linked to inventory
         const STOCK_DELETE_QUESTION = 'Ma hubtaa inaad tirtiraysid iibkan stock-ga la xiriira?';
 
+        // COGS timing for credit (debt) sales:
+        //   true  = the cost of goods is counted as soon as the goods leave the shop (recommended)
+        //   false = the cost is counted in proportion to what the customer has paid
+        // Cash sales always count their cost immediately.
+        const COGS_ON_CREDIT_AT_SALE = true;
+
         // ---------- Safe helpers ----------
         function escapeHtml(str) {
             return String(str)
@@ -599,9 +606,11 @@
         function fmtQty(n) { return String(r3(n)); }
 
         // ---------- State ----------
-        // cashSales:    [{ id, customer, description, amount, date, time, stockKey, qty, unit, cogs }]
+        // cashSales:    [{ id, customer, description, amount, date, time, stockKey, qty, unit, unitCost, cogs }]
         //               amount = final total saved (qty x unit price when stock-linked)
-        // customers:    { "khadar": { name, items: [ { id, desc, amount, paid, date, time, paidDate, paidTime, stockKey, qty, unit, cogs } ] } }
+        //               unitCost = the item's unit cost taken from inventory at the time of sale
+        //               cogs = qty x unitCost, in cents
+        // customers:    { "khadar": { name, items: [ { id, desc, amount, paid, date, time, paidDate, paidTime, stockKey, qty, unit, unitCost, cogs } ] } }
         //               Each debt item carries its own paid amount. A fully paid item
         //               is drawn as a "Bixin" card. There is no separate payments list.
         // totalRevenue: persistent number = cash sales + collected debt payments
@@ -609,14 +618,16 @@
         //               Remaining = opening + bought - sold
         // purchases:    [{ id, item, key, qty, unitCost, total, supplier, opening, date, time }]
         // expenses:     [{ id, category, desc, amount, date, time }]
-        // cogsCents:    persistent cost of goods sold (in cents), recognized when revenue is recognized
+        // cogsAdjCents: small persistent adjustment (cents) that keeps COGS correct after records
+        //               are cleared or removed without returning goods to stock.
+        //               COGS itself is NOT stored: it is recalculated live from the records.
         let cashSales = loadJSON('ganacsi_cash', []);
         let customers = loadJSON('ganacsi_customers', {});
         let totalRevenue = parseFloat(localStorage.getItem('ganacsi_revenue')) || 0;
         let stock = loadJSON('ganacsi_stock', {});
         let purchases = loadJSON('ganacsi_purchases', []);
         let expenses = loadJSON('ganacsi_expenses', []);
-        let cogsCents = parseInt(localStorage.getItem('ganacsi_cogs'), 10) || 0;
+        let cogsAdjCents = parseInt(localStorage.getItem('ganacsi_cogs_adj'), 10) || 0;
 
         const form = document.getElementById('record-form');
         const typeEl = document.getElementById('type');
@@ -675,7 +686,7 @@
             localStorage.setItem('ganacsi_stock', JSON.stringify(stock));
             localStorage.setItem('ganacsi_purchases', JSON.stringify(purchases));
             localStorage.setItem('ganacsi_expenses', JSON.stringify(expenses));
-            localStorage.setItem('ganacsi_cogs', String(cogsCents));
+            localStorage.setItem('ganacsi_cogs_adj', String(cogsAdjCents));
         }
 
         // ---------- Stock helpers ----------
@@ -692,6 +703,60 @@
             if (!rec.stockKey || !rec.qty) return '';
             const unitTxt = rec.unit ? ' @ $' + Number(rec.unit).toFixed(2) : '';
             return ' • 📦 ×' + fmtQty(rec.qty) + unitTxt;
+        }
+
+        // ---------- COGS (Cost of Goods Sold): calculated live from the records ----------
+
+        // Full cost of one stock-linked record = its quantity x that item's unit cost (in cents).
+        // The unit cost was read from the inventory record when the sale was saved.
+        // Older records without a saved cost fall back to the item's current inventory cost.
+        function itemCostCents(rec) {
+            if (!rec || !rec.stockKey || !(rec.qty > 0)) return 0;
+            if (typeof rec.cogs === 'number') return rec.cogs;
+            const it = stock[rec.stockKey];
+            return it ? Math.round(rec.qty * (it.avgCost || 0) * 100) : 0;
+        }
+
+        // Cost counted for a debt item right now
+        function debtCostCents(item) {
+            const full = itemCostCents(item);
+            if (COGS_ON_CREDIT_AT_SALE) return full;
+            const amtC = toCents(item.amount);
+            return amtC > 0 ? Math.round(full * toCents(item.paid) / amtC) : 0;
+        }
+
+        // Sum of costs over every cash sale and every debt item (before the adjustment)
+        function recordsCogsCents() {
+            let total = 0;
+            cashSales.forEach(tx => { total += itemCostCents(tx); });
+            Object.values(customers).forEach(c => {
+                c.items.forEach(i => { total += debtCostCents(i); });
+            });
+            return total;
+        }
+
+        // The COGS shown on the Xisaab tab
+        function computeCogsCents() {
+            return Math.max(recordsCogsCents() + cogsAdjCents, 0);
+        }
+
+        // Per-item breakdown: [{ name, qty, cents }], e.g. Sokor 10 x $45.00 = $450.00
+        function cogsBreakdown() {
+            const map = {};
+            const add = (rec, cents) => {
+                if (!rec.stockKey || !(rec.qty > 0)) return;
+                const full = itemCostCents(rec);
+                const share = full > 0 ? cents / full : 1;
+                const nm = (stock[rec.stockKey] && stock[rec.stockKey].name) || rec.stockKey;
+                if (!map[rec.stockKey]) map[rec.stockKey] = { name: nm, qty: 0, cents: 0 };
+                map[rec.stockKey].qty += rec.qty * share;
+                map[rec.stockKey].cents += cents;
+            };
+            cashSales.forEach(tx => add(tx, itemCostCents(tx)));
+            Object.values(customers).forEach(c => {
+                c.items.forEach(i => add(i, debtCostCents(i)));
+            });
+            return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
         }
 
         // ---------- Debt item helpers ----------
@@ -726,7 +791,7 @@
 
         // Applies a payment to a customer's items, oldest first.
         // descKey = normalized description to match, or null to match any unpaid item.
-        // Also recognizes the matching share of the item's cost of goods (COGS).
+        // COGS is recalculated live from the records, so nothing else needs updating here.
         // Returns the cents that could not be applied.
         function applyToItems(cust, descKey, cents, date, time) {
             for (const item of cust.items) {
@@ -735,14 +800,9 @@
                 const rem = remainingCents(item);
                 if (rem <= 0) continue;
                 const take = Math.min(rem, cents);
-                const amtC = toCents(item.amount);
-                const oldPaid = toCents(item.paid);
-                item.paid = (oldPaid + take) / 100;
+                item.paid = (toCents(item.paid) + take) / 100;
                 item.paidDate = date;
                 item.paidTime = time;
-                if (item.cogs && amtC > 0) {
-                    cogsCents += Math.round(item.cogs * (oldPaid + take) / amtC) - Math.round(item.cogs * oldPaid / amtC);
-                }
                 cents -= take;
             }
             return cents;
@@ -1051,24 +1111,49 @@
         }
 
         // Net Profit = Total Revenue - (COGS + Operating Expenses + Payroll)
+        // COGS = sum over all items of (quantity sold x that item's unit cost)
         function renderPL() {
             const revC = toCents(totalRevenue);
+            const cogsC = computeCogsCents();
             let opexC = 0, payC = 0;
             expenses.forEach(e => {
                 if (e.category === 'salary') payC += toCents(e.amount);
                 else opexC += toCents(e.amount);
             });
-            const grossC = revC - cogsCents;
-            const netC = revC - (cogsCents + opexC + payC);
+            const grossC = revC - cogsC;
+            const netC = revC - (cogsC + opexC + payC);
 
             let stockValC = 0;
             Object.values(stock).forEach(it => { stockValC += stockValueCents(it); });
             let spentC = 0;
             purchases.forEach(p => { if (!p.opening) spentC += toCents(p.total); });
 
+            // Per-item COGS breakdown lines
+            let breakdownHtml = '';
+            cogsBreakdown().forEach(row => {
+                const unitC = row.qty > 0 ? row.cents / row.qty : 0;
+                breakdownHtml += `
+                    <div class="pl-sub">
+                        <span>${escapeHtml(row.name)}: ${fmtQty(row.qty)} × $${(unitC / 100).toFixed(2)}</span>
+                        <span>${money(row.cents)}</span>
+                    </div>`;
+            });
+            if (cogsAdjCents !== 0) {
+                breakdownHtml += `
+                    <div class="pl-sub">
+                        <span>Kale (diiwaan la tirtiray / la nadiifiyay)</span>
+                        <span>${moneySigned(cogsAdjCents)}</span>
+                    </div>`;
+            }
+
+            const creditNote = COGS_ON_CREDIT_AT_SALE
+                ? 'Iibka deynta ah: kharashka alaabta waa la xisaabiyay marka alaabta la bixiyo, xitaa haddii lacagta weli aan la ururin.'
+                : 'Iibka deynta ah: kharashka alaabta waxaa la xisaabiyaa marka macmiilku bixiyo lacagta.';
+
             plCardEl.innerHTML = `
                 <div class="pl-line"><span>Wadarta Iibka (Total Revenue)</span><b>${money(revC)}</b></div>
-                <div class="pl-line"><span>− Kharashka alaabta la iibiyay (COGS)</span><b>${money(cogsCents)}</b></div>
+                <div class="pl-line"><span>− Kharashka alaabta la iibiyay (COGS)</span><b>${money(cogsC)}</b></div>
+                ${breakdownHtml}
                 <div class="pl-line strong"><span>Faa'iidada Guud (Gross Profit)</span><span>${moneySigned(grossC)}</span></div>
                 <div class="pl-line"><span>− Kharashka Shaqada (Operating)</span><b>${money(opexC)}</b></div>
                 <div class="pl-line"><span>− Mushaharka (Payroll)</span><b>${money(payC)}</b></div>
@@ -1078,6 +1163,7 @@
                 </div>
                 <p class="pl-info">
                     Wadarta iibsashada: ${money(spentC)} • Qiimaha stock-ga hadhay: ${money(stockValC)}<br>
+                    ${escapeHtml(creditNote)}<br>
                     ⚠️ Iibka aan stock lagu xiri lahayn kharashkiisa lama xisaabin, sidaas darteed faa'iidadiisu way ka badnaan kartaa.
                 </p>
             `;
@@ -1132,7 +1218,7 @@
             let amount = enteredAmount;
 
             // ---- Stock link (sale / debt only) ----
-            let stockKey = '', qty = 0, cogs = 0, unit = 0, stockItem = null;
+            let stockKey = '', qty = 0, cogs = 0, unit = 0, unitCost = 0, stockItem = null;
             if (type !== 'payment' && stockSelectEl.value) {
                 stockKey = stockSelectEl.value;
                 stockItem = stock[stockKey];
@@ -1159,7 +1245,10 @@
                     alert('⚠️ Wadarta guud waa inay ka weyn tahay $0.00.');
                     return;
                 }
-                cogs = Math.round(qty * (stockItem.avgCost || 0) * 100);
+
+                // Item-specific cost: read this item's unit cost from its inventory record
+                unitCost = stockItem.avgCost || 0;
+                cogs = Math.round(qty * unitCost * 100);
             }
 
             const now = new Date();
@@ -1169,20 +1258,19 @@
             const key = normalize(customerName);
 
             if (type === 'sale') {
-                cashSales.push({ id, customer: customerName, description, amount, date, time, stockKey, qty, unit, cogs });
+                cashSales.push({ id, customer: customerName, description, amount, date, time, stockKey, qty, unit, unitCost, cogs });
                 totalRevenue += amount;
                 if (stockItem) {
                     stockItem.sold = r3((stockItem.sold || 0) + qty);
-                    cogsCents += cogs;   // cash sale: cost recognized immediately
                 }
 
             } else if (type === 'debt') {
                 if (!customers[key]) {
                     customers[key] = { name: customerName, items: [] };
                 }
-                customers[key].items.push({ id, desc: description, amount, paid: 0, date, time, stockKey, qty, unit, cogs });
+                customers[key].items.push({ id, desc: description, amount, paid: 0, date, time, stockKey, qty, unit, unitCost, cogs });
                 if (stockItem) {
-                    stockItem.sold = r3((stockItem.sold || 0) + qty);   // goods leave the shop now; cost recognized as it is paid
+                    stockItem.sold = r3((stockItem.sold || 0) + qty);   // goods leave the shop now
                 }
 
             } else if (type === 'payment') {
@@ -1330,7 +1418,7 @@
 
         // Deleting a cash sale.
         //  - Stock-linked: asks the stock question first. Only after OK, the quantity goes
-        //    back to stock and the cost leaves COGS. Cancel changes nothing.
+        //    back to stock. Its cost leaves COGS automatically (the record is gone).
         //  - Not stock-linked: deleted as before.
         // In both cases the sale's amount leaves total revenue (it was a mistaken entry).
         function deleteCashSale(id) {
@@ -1356,11 +1444,10 @@
             cashSales.splice(index, 1);
             totalRevenue = Math.max(totalRevenue - tx.amount, 0);
 
-            // Goods go back to stock, cost leaves COGS (only after confirmation above)
+            // Goods go back to stock (only after confirmation above)
             if (it) {
                 it.sold = Math.max(r3((it.sold || 0) - (tx.qty || 0)), 0);
             }
-            if (tx.cogs) cogsCents = Math.max(cogsCents - tx.cogs, 0);
             updateUI();
         }
 
@@ -1370,6 +1457,8 @@
         //    still-unpaid share go back to stock. A fully paid card returns nothing,
         //    because those goods were sold and the money is already in revenue.
         //  - Revenue is never changed here.
+        //  - COGS: cost of goods that go back to stock leaves COGS; cost of goods that
+        //    were really sold stays counted (kept through the small adjustment).
         function deleteCustomerItem(key, id) {
             const cust = customers[key];
             if (!cust) return;
@@ -1420,10 +1509,17 @@
                 if (!ok) return;
             }
 
-            // Confirmed: reverse the stock effect
+            // Confirmed: COGS bookkeeping first (uses the item before it is removed)
+            const contribution = debtCostCents(item);
+            let countedReturn = 0;
             if (returnQty > 0 && stockIt) {
                 stockIt.sold = Math.max(r3((stockIt.sold || 0) - returnQty), 0);
+                if (COGS_ON_CREDIT_AT_SALE && item.qty > 0) {
+                    countedReturn = Math.round(itemCostCents(item) * returnQty / item.qty);
+                }
             }
+            // Cost of goods that really left the shop stays in COGS after the card is gone
+            cogsAdjCents += contribution - countedReturn;
 
             // Removes the card only. Revenue is NEVER changed here.
             cust.items.splice(idx, 1);
@@ -1436,6 +1532,11 @@
 
         function settleCustomer(key) {
             if (confirm("Ma hubtaa inaad sifeyso deyntan oo aad ka saarto liiska?")) {
+                // The goods were sold: their cost stays in COGS after the card is removed
+                const cust = customers[key];
+                if (cust) {
+                    cust.items.forEach(i => { cogsAdjCents += debtCostCents(i); });
+                }
                 // Removes the card only. Revenue is NEVER reduced here.
                 delete customers[key];
                 updateUI();
@@ -1444,7 +1545,7 @@
 
         // ---------- Separate deletion: Iibka Guud (Total Sales) ----------
         // Resets total sales to $0.00 and removes the cash sale cards.
-        // Also resets COGS so profit stays consistent. Stock and debts are NOT touched.
+        // Also resets COGS to $0 so profit stays consistent. Stock and debts are NOT touched.
         function clearSales() {
             if (totalRevenue <= 0 && cashSales.length === 0) {
                 alert('Iibka guud horay ayuu u ahaa $0.00. Wax la tirtiro ma jiraan.');
@@ -1459,14 +1560,15 @@
             if (!ok) return;
 
             totalRevenue = 0;
-            cogsCents = 0;
             cashSales = [];
+            // Make COGS exactly $0.00 right now (debts still on file are offset)
+            cogsAdjCents = -recordsCogsCents();
             updateUI();
         }
 
         // ---------- Separate deletion: Deynta Maqan (Total Debt) ----------
         // Removes all customer debt cards. Total sales and cash sales are NOT touched.
-        // Goods from removed unpaid debts are NOT returned to stock.
+        // Goods from removed unpaid debts are NOT returned to stock, so their cost stays in COGS.
         function clearDebts() {
             if (Object.keys(customers).length === 0) {
                 alert('Deynta maqan horay ayay u ahayd $0.00. Wax la tirtiro ma jiraan.');
@@ -1484,6 +1586,11 @@
                 '\n\nMa hubtaa inaad tirtirto Deynta Maqan?'
             );
             if (!ok) return;
+
+            // Keep the cost of these goods in COGS after the cards are removed
+            Object.values(customers).forEach(c => {
+                c.items.forEach(i => { cogsAdjCents += debtCostCents(i); });
+            });
 
             customers = {};
             updateUI();
