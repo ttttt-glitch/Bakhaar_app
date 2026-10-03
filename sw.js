@@ -1,5 +1,5 @@
 // Service Worker for Xisaabta Ganacsigaaga
-const CACHE_NAME = 'bakhaar-cache-v16';
+const CACHE_NAME = 'bakhaar-cache-v17';
 
 // Must exist or the app will not install offline
 const CORE_ASSETS = [
@@ -24,6 +24,7 @@ self.addEventListener('install', (event) => {
       });
     })
   );
+  // Forces the waiting service worker to become active immediately
   self.skipWaiting();
 });
 
@@ -38,6 +39,7 @@ self.addEventListener('activate', (event) => {
         })
       );
     }).then(() => {
+      // Takes control of all open pages immediately without waiting for a restart
       return self.clients.claim();
     })
   );
