@@ -19,7 +19,7 @@
         .card p.label { font-size: 0.75rem; color: #64748b; font-weight: 500; margin-bottom: 0.25rem; }
         .sales-val { font-size: 1.5rem; font-weight: 700; color: #059669; }
         .debt-val { font-size: 1.5rem; font-weight: 700; color: #e11d48; }
-        h2 { font-size: 0.95rem; font-weight: 600; color: #334155; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; }
+        h2 { font-size: 0.95rem; font-weight: 600; color: #334155; margin-bottom: 0.75rem; padding-bottom: 0.5rem; border-bottom: 1px solid #f1f5f9; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
         form { display: flex; flex-direction: column; gap: 0.75rem; }
         label { display: block; font-size: 0.75rem; font-weight: 500; color: #475569; margin-bottom: 0.25rem; }
         input, select { width: 100%; padding: 0.65rem; border: 1px solid #cbd5e1; border-radius: 0.5rem; font-size: 0.875rem; outline: none; background: #f8fafc; }
@@ -46,6 +46,11 @@
         .hint.total { font-weight: 700; font-size: 0.78rem; }
         .partial-note { font-size: 10px; color: #b45309; display: block; margin-top: 0.15rem; }
 
+        /* ----- Sales / Debts sections ----- */
+        .sec-count { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; white-space: nowrap; }
+        .sec-count.debt { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
+        .sec-search { margin-bottom: 0.75rem; }
+
         /* ----- Tabs (inside sticky header) ----- */
         .tabs { max-width: 28rem; margin: 0.65rem auto 0; display: flex; gap: 0.35rem; }
         .tab-btn { flex: 1; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 0.5rem; padding: 0.5rem 0.2rem; font-size: 0.7rem; font-weight: 600; cursor: pointer; }
@@ -61,11 +66,12 @@
         .phone-btn { flex-shrink: 0; font-size: 0.7rem; background: white; border: 1px solid currentColor; color: inherit; border-radius: 0.4rem; padding: 0.25rem 0.5rem; cursor: pointer; }
 
         /* ----- Expired banner + activation box ----- */
-        .expired-banner { background: #fff1f2; border: 2px solid #e11d48; border-radius: 0.6rem; padding: 0.85rem; margin-bottom: 0.75rem; }
+        #sub-banner:empty { display: none; }
+        .expired-banner { background: #fff1f2; border: 2px solid #e11d48; border-radius: 0.6rem; padding: 0.85rem; }
         .expired-banner .t { font-weight: 700; color: #9f1239; font-size: 0.95rem; margin-bottom: 0.3rem; }
         .expired-banner .d { font-size: 0.75rem; color: #7f1d1d; line-height: 1.4; margin-bottom: 0.6rem; }
         .license-row { display: flex; gap: 0.5rem; }
-        .license-row input { flex: 1; width: auto; min-width: 0; text-transform: uppercase; }
+        .license-row input { flex: 1; width: auto; min-width: 0; text-transform: uppercase; letter-spacing: 0.08em; }
         .activate-btn { background: #e11d48; color: white; border: none; border-radius: 0.5rem; padding: 0 1rem; font-weight: 600; font-size: 0.85rem; cursor: pointer; }
         .activate-btn:hover { background: #be123c; }
         .license-msg { font-size: 0.75rem; color: #be123c; margin-top: 0.5rem; min-height: 1em; }
@@ -108,6 +114,19 @@
         .sup-line .sub { font-size: 0.68rem; color: #64748b; margin-top: 0.1rem; }
         .sup-line .amt { font-weight: 700; color: #4c1d95; }
         .sup-right { display: flex; align-items: center; gap: 0.2rem; flex-shrink: 0; }
+
+        /* ----- Custom modal (replaces prompt / confirm / alert) ----- */
+        .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 200; }
+        .modal-box { background: white; width: 100%; max-width: 22rem; border-radius: 1rem; padding: 1.1rem 1.1rem 0.9rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto; }
+        .modal-title { font-weight: 700; font-size: 0.98rem; color: #0f172a; white-space: pre-line; line-height: 1.35; }
+        .modal-msg { margin-top: 0.6rem; font-size: 0.85rem; color: #475569; white-space: pre-line; line-height: 1.45; }
+        .modal-input { margin-top: 0.8rem; }
+        .modal-error { margin-top: 0.4rem; font-size: 0.75rem; color: #be123c; }
+        .modal-btns { display: flex; gap: 0.5rem; margin-top: 1rem; }
+        .modal-btns button { flex: 1; padding: 0.7rem; border-radius: 0.6rem; font-size: 0.875rem; font-weight: 600; border: none; cursor: pointer; }
+        .modal-btn-cancel { background: #e2e8f0; color: #334155; }
+        .modal-btn-ok { background: #059669; color: white; }
+        .modal-btn-ok.danger { background: #e11d48; }
     </style>
 
     <!-- PWA Manifest, Icons & Service Worker Registration -->
@@ -145,6 +164,9 @@
 
         <!-- ==================== TAB 1: SALES & DEBT ==================== -->
         <section id="tab-main" class="tab-panel">
+
+            <!-- Expired warning + offline activation box (filled by script when expired) -->
+            <div id="sub-banner"></div>
 
             <!-- Summary Cards (each has its own separate delete button) -->
             <div class="grid-2">
@@ -209,22 +231,31 @@
                 </form>
             </div>
 
-            <!-- Transaction Lists / Customer Ledger -->
-            <div class="card">
+            <!-- ===== SECTION: IIBKA (Sales / items sold) ===== -->
+            <div class="card" id="sales-section">
                 <h2>
-                    <span>Diiwaanka Dhaqdhaqaaqa</span>
+                    <span>🛒 Iibka (Sales)</span>
+                    <span class="sec-count" id="sales-count"></span>
                 </h2>
-
-                <!-- Expired warning + offline activation box (filled by script when expired) -->
-                <div id="sub-banner"></div>
-
-                <!-- Instant Search Input -->
-                <div style="margin-bottom: 0.75rem;">
-                    <input type="text" id="search-input" placeholder="🔍 Raadi magaca macmiilka...">
+                <div class="sec-search">
+                    <input type="search" id="sales-search" placeholder="🔍 Raadi iibka (macmiil ama alaab)..." autocomplete="off">
                 </div>
+                <div id="sales-list" class="list-container">
+                    <p class="text-center">Wali iib kaash ah lama gelin.</p>
+                </div>
+            </div>
 
-                <div id="transactions-list" class="list-container">
-                    <p class="text-center">Wali wax xisaab ah lama gelin.</p>
+            <!-- ===== SECTION: DEYNTA (Debts) ===== -->
+            <div class="card" id="debt-section">
+                <h2>
+                    <span>📒 Deynta (Debts)</span>
+                    <span class="sec-count debt" id="debt-count"></span>
+                </h2>
+                <div class="sec-search">
+                    <input type="search" id="debt-search" placeholder="🔍 Raadi magaca macmiilka..." autocomplete="off">
+                </div>
+                <div id="debt-list" class="list-container">
+                    <p class="text-center">Wali deyn lama gelin.</p>
                 </div>
             </div>
         </section>
@@ -341,23 +372,163 @@
 
     </main>
 
+    <!-- Custom modal: used instead of the browser's prompt() / confirm() / alert() -->
+    <div id="modal-overlay" class="modal-overlay" hidden>
+        <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
+            <p id="modal-title" class="modal-title"></p>
+            <p id="modal-msg" class="modal-msg" hidden></p>
+            <input type="text" id="modal-input" class="modal-input" autocomplete="off" hidden>
+            <p id="modal-error" class="modal-error" hidden></p>
+            <div class="modal-btns">
+                <button type="button" id="modal-cancel" class="modal-btn-cancel">Jooji</button>
+                <button type="button" id="modal-ok" class="modal-btn-ok">Hagaag</button>
+            </div>
+        </div>
+    </div>
+
     <script>
+        // =====================================================================
+        //  CUSTOM MODALS (Promise + async/await)
+        //  uiAlert(text)            -> resolves when the user taps OK
+        //  uiConfirm(text, opts)    -> resolves true (OK) or false (Cancel / Esc / tap outside)
+        //  uiPrompt(title, opts)    -> resolves the typed text, or null if cancelled
+        //  The calling code pauses at "await" until the user answers.
+        //  For alert/confirm text: the first paragraph (before a blank line) becomes the
+        //  bold title and the rest becomes the message.
+        // =====================================================================
+        const modalOverlay = document.getElementById('modal-overlay');
+        const modalTitleEl = document.getElementById('modal-title');
+        const modalMsgEl = document.getElementById('modal-msg');
+        const modalInputEl = document.getElementById('modal-input');
+        const modalErrorEl = document.getElementById('modal-error');
+        const modalOkBtn = document.getElementById('modal-ok');
+        const modalCancelBtn = document.getElementById('modal-cancel');
+
+        // Modals are shown one at a time: a new one waits for the previous to be answered
+        let modalQueue = Promise.resolve();
+
+        function showModal(opts) {
+            const task = modalQueue.then(() => new Promise(resolve => {
+                const o = Object.assign({
+                    kind: 'alert', title: '', text: '',
+                    okText: 'Hagaag', cancelText: 'Jooji', danger: false,
+                    inputType: 'text', inputMode: 'text', validate: null
+                }, opts);
+
+                let title = o.title;
+                let body = '';
+                if (title) {
+                    body = o.text;
+                } else {
+                    const parts = String(o.text).split('\n\n');
+                    title = parts.shift();
+                    body = parts.join('\n\n');
+                }
+
+                modalTitleEl.textContent = title;
+                modalMsgEl.textContent = body;
+                modalMsgEl.hidden = !body;
+
+                modalInputEl.hidden = (o.kind !== 'prompt');
+                modalInputEl.value = '';                       // never pre-filled
+                modalInputEl.type = o.inputType;
+                modalInputEl.setAttribute('inputmode', o.inputMode);
+                modalErrorEl.hidden = true;
+                modalErrorEl.textContent = '';
+
+                modalOkBtn.textContent = o.okText;
+                modalOkBtn.classList.toggle('danger', !!o.danger);
+                modalCancelBtn.textContent = o.cancelText;
+                modalCancelBtn.hidden = (o.kind === 'alert');
+
+                function finish(value) {
+                    modalOverlay.hidden = true;
+                    document.body.style.overflow = '';
+                    modalOkBtn.removeEventListener('click', onOk);
+                    modalCancelBtn.removeEventListener('click', onCancel);
+                    modalOverlay.removeEventListener('click', onOverlay);
+                    document.removeEventListener('keydown', onKey);
+                    modalInputEl.value = '';
+                    resolve(value);
+                }
+
+                function onOk() {
+                    if (o.kind === 'prompt') {
+                        const val = modalInputEl.value.trim();
+                        if (o.validate) {
+                            const err = o.validate(val);
+                            if (err) {
+                                modalErrorEl.textContent = err;
+                                modalErrorEl.hidden = false;
+                                return;
+                            }
+                        }
+                        finish(val);
+                    } else if (o.kind === 'confirm') {
+                        finish(true);
+                    } else {
+                        finish(undefined);
+                    }
+                }
+
+                function onCancel() {
+                    if (o.kind === 'confirm') finish(false);
+                    else if (o.kind === 'prompt') finish(null);
+                    else finish(undefined);
+                }
+
+                function onOverlay(e) { if (e.target === modalOverlay) onCancel(); }
+
+                function onKey(e) {
+                    if (e.key === 'Escape') { e.preventDefault(); onCancel(); }
+                    else if (e.key === 'Enter' && o.kind === 'prompt') { e.preventDefault(); onOk(); }
+                }
+
+                modalOkBtn.addEventListener('click', onOk);
+                modalCancelBtn.addEventListener('click', onCancel);
+                modalOverlay.addEventListener('click', onOverlay);
+                document.addEventListener('keydown', onKey);
+
+                modalOverlay.hidden = false;
+                document.body.style.overflow = 'hidden';
+
+                // Safe default focus: Cancel for confirms, the input for prompts
+                if (o.kind === 'prompt') modalInputEl.focus();
+                else if (o.kind === 'confirm') modalCancelBtn.focus();
+                else modalOkBtn.focus();
+            }));
+
+            modalQueue = task.catch(() => {});
+            return task;
+        }
+
+        function uiAlert(text, opts) { return showModal(Object.assign({ kind: 'alert', text: text }, opts)); }
+        function uiConfirm(text, opts) { return showModal(Object.assign({ kind: 'confirm', text: text }, opts)); }
+        function uiPrompt(title, opts) { return showModal(Object.assign({ kind: 'prompt', title: title, text: '' }, opts)); }
+
         // ---------- Header date ----------
         document.getElementById('current-date').innerText = new Date().toLocaleDateString();
+
+        // =====================================================================
+        //  OWNER SETTINGS  (edit these before uploading)
+        // =====================================================================
+
+        // VIP devices: these numbers are never locked out.
+        const vipDevices = ["0907123456"];
+
+        // For testing only: default expiry used when none is saved yet (format "YYYY-MM-DD").
+        // Leave as null to default to the last day of the current month.
+        const DEFAULT_EXPIRY_OVERRIDE = "2026-01-01";
+
+        // Secret phrase used to build the monthly access codes.
+        // CHANGE THIS to your own phrase. It must be IDENTICAL in kood-generator.html.
+        const CODE_SECRET = 'Bakhaar-7Qx92-secret';
 
         // =====================================================================
         //  SUBSCRIPTION / LICENSE SYSTEM (offline, no backend)
         // =====================================================================
 
-        // VIP devices: these numbers are never locked out. Edit this list.
-        const vipDevices = ["0907123456"];
-
-        // For testing only: default expiry used when none is saved yet (format "YYYY-MM-DD").
-        // Leave as null to default to the last day of the current month.
-        const DEFAULT_EXPIRY_OVERRIDE = null;
-
         const SUB_DAYS = 30;
-        const MONTHS = ['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'];
         const LS_EXPIRY = 'ganacsi_sub_expiry';
         const LS_PHONE = 'ganacsi_phone';
         const LS_USED_KEYS = 'ganacsi_used_keys';
@@ -422,14 +593,52 @@
         const isVip = isVipUser();
         const subscriptionActive = (nowDate <= expiryDate || isVip);
 
-        // Parses "GANACSI-NOV2026" (any capitals / spacing). Returns null if invalid.
-        function parseLicenseKey(raw) {
-            const cleaned = String(raw).trim().toUpperCase().replace(/\s+/g, '');
-            const m = /^GANACSI-([A-Z]{3})(\d{4})$/.exec(cleaned);
-            if (!m) return null;
-            const monthIndex = MONTHS.indexOf(m[1]);
-            if (monthIndex === -1) return null;
-            return { normalized: 'GANACSI-' + m[1] + m[2], monthIndex, year: Number(m[2]) };
+        // ---------- Rolling monthly code ----------
+        // The code for a month = hash(CODE_SECRET | year | month), turned into 6 characters.
+        // A new month gives a new code automatically. Nothing needs editing each month.
+        const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // no 0/O, 1/I/L
+        const CODE_LENGTH = 6;
+
+        // Small, fast 53-bit string hash (same function is used in kood-generator.html)
+        function cyrb53(str) {
+            let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
+            for (let i = 0; i < str.length; i++) {
+                const ch = str.charCodeAt(i);
+                h1 = Math.imul(h1 ^ ch, 2654435761);
+                h2 = Math.imul(h2 ^ ch, 1597334677);
+            }
+            h1 = Math.imul(h1 ^ (h1 >>> 16), 2246822507) ^ Math.imul(h2 ^ (h2 >>> 13), 3266489909);
+            h2 = Math.imul(h2 ^ (h2 >>> 16), 2246822507) ^ Math.imul(h1 ^ (h1 >>> 13), 3266489909);
+            return 4294967296 * (2097151 & h2) + (h1 >>> 0);
+        }
+
+        // monthIndex: 0 = January ... 11 = December
+        function monthlyCode(year, monthIndex) {
+            let h = cyrb53(CODE_SECRET + '|' + year + '|' + (monthIndex + 1));
+            let out = '';
+            for (let i = 0; i < CODE_LENGTH; i++) {
+                out += CODE_ALPHABET.charAt(h % CODE_ALPHABET.length);
+                h = Math.floor(h / CODE_ALPHABET.length);
+            }
+            return out;
+        }
+
+        function normalizeCode(raw) {
+            return String(raw).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        }
+
+        // Checks the typed code against this month's code and next month's code
+        // (next month allows early renewal). Returns { tag: "YYYY-MM" } or null.
+        function matchMonthlyCode(raw) {
+            const entered = normalizeCode(raw);
+            if (entered.length !== CODE_LENGTH) return null;
+            for (let ahead = 0; ahead <= 1; ahead++) {
+                const d = new Date(nowDate.getFullYear(), nowDate.getMonth() + ahead, 1);
+                if (monthlyCode(d.getFullYear(), d.getMonth()) === entered) {
+                    return { tag: d.getFullYear() + '-' + pad2(d.getMonth() + 1) };
+                }
+            }
+            return null;
         }
 
         function setLicenseMsg(text) {
@@ -437,19 +646,19 @@
             if (el) el.textContent = text;
         }
 
-        // Validates the typed license key (or a VIP number) and activates.
-        function verifyAndActivateKey() {
+        // Validates the typed monthly code (or a VIP number) and activates.
+        async function verifyAndActivateKey() {
             const input = document.getElementById('license-input');
             if (!input) return;
             const raw = input.value.trim();
-            if (!raw) { setLicenseMsg('Fadlan geli furaha.'); return; }
+            if (!raw) { setLicenseMsg('Fadlan geli koodhka.'); return; }
 
             // A VIP phone number typed here unlocks the device permanently
             const digits = digitsOnly(raw);
             if (digits.length >= 7 && /^[\d\s+\-]+$/.test(raw)) {
                 if (vipDevices.some(v => digitsOnly(v) === digits)) {
                     localStorage.setItem(LS_PHONE, digits);
-                    alert('⭐ Lambarka VIP waa la aqbalay. App-ku wuu furmayaa.');
+                    await uiAlert('⭐ Lambarka VIP waa la aqbalay.\n\nApp-ku wuu furmayaa.');
                     location.reload();
                 } else {
                     setLicenseMsg('Lambarkan ma ahan VIP.');
@@ -457,28 +666,17 @@
                 return;
             }
 
-            const key = parseLicenseKey(raw);
-            if (!key) {
-                setLicenseMsg('Furahan waa khalad. Qaabka saxda ah: GANACSI-NOV2026');
+            const match = matchMonthlyCode(raw);
+            if (!match) {
+                setLicenseMsg('Koodhkan waa khalad.');
                 return;
             }
 
-            // Key month must be the current month or the next month
-            const monthsAhead = (key.year - nowDate.getFullYear()) * 12 + (key.monthIndex - nowDate.getMonth());
-            if (monthsAhead < 0) {
-                setLicenseMsg('Furahan waa duugoobay (bishii hore ayay ahayd).');
-                return;
-            }
-            if (monthsAhead > 1) {
-                setLicenseMsg('Furahan wali ma shaqeynayo (bisha soo socota ka dib ayay ahayd).');
-                return;
-            }
-
-            // Each key can be used only once
+            // Each month's code can be used only once on this device
             let used = [];
             try { used = JSON.parse(localStorage.getItem(LS_USED_KEYS)) || []; } catch (e) { used = []; }
-            if (used.includes(key.normalized)) {
-                setLicenseMsg('Furahan hore ayaa loo isticmaalay.');
+            if (used.includes(match.tag)) {
+                setLicenseMsg('Koodhkan hore ayaa loo isticmaalay.');
                 return;
             }
 
@@ -488,19 +686,24 @@
             base.setDate(base.getDate() + SUB_DAYS);
             const newExpiryISO = toISODate(base);
 
-            used.push(key.normalized);
+            used.push(match.tag);
             localStorage.setItem(LS_USED_KEYS, JSON.stringify(used));
             localStorage.setItem(LS_EXPIRY, newExpiryISO);
 
-            alert('✅ Waa la dhaqaajiyay!\nKu shaqeynaya ilaa: ' + newExpiryISO);
+            await uiAlert('✅ Waa la dhaqaajiyay!\n\nKu shaqeynaya ilaa: ' + newExpiryISO);
             location.reload();
         }
 
-        // Saves this device's phone number (used for the VIP whitelist)
-        function askPhoneNumber() {
-            const current = localStorage.getItem(LS_PHONE) || '';
-            const val = prompt('Geli lambarka telefoonkaaga (tusaale: 0907123456):', current);
-            if (val === null) return;
+        // Saves this device's phone number (used for the VIP whitelist).
+        // The box is empty: no example number and no saved number is shown.
+        async function askPhoneNumber() {
+            const val = await uiPrompt('Geli lambarka telefonkaga', {
+                inputType: 'tel',
+                inputMode: 'numeric',
+                okText: 'Kaydi',
+                cancelText: 'Jooji'
+            });
+            if (val === null) return;   // cancelled: nothing changes
             const digits = digitsOnly(val);
             if (!digits) {
                 localStorage.removeItem(LS_PHONE);
@@ -560,12 +763,13 @@
                 return;
             }
 
+            // No placeholder and no example: the code is never shown on screen
             bannerEl.innerHTML = `
                 <div class="expired-banner">
                     <p class="t">⛔ Isdiiwaangelintii waa dhammaatay</p>
-                    <p class="d">Waxaad weli arki kartaa diiwaankaaga, deymahaaga, stock-ga iyo xisaabtaada, laakiin ma kaydin kartid wax cusub ilaa aad dhaqaajiso. Geli furaha bisha (tusaale: GANACSI-NOV2026).</p>
+                    <p class="d">Waxaad weli arki kartaa diiwaankaaga, deymahaaga, stock-ga iyo xisaabtaada, laakiin ma kaydin kartid wax cusub ilaa aad dhaqaajiso. Geli koodhka bisha.</p>
                     <div class="license-row">
-                        <input type="text" id="license-input" placeholder="GANACSI-NOV2026" autocomplete="off" autocapitalize="characters">
+                        <input type="text" id="license-input" autocomplete="off" autocapitalize="characters" spellcheck="false" aria-label="Koodhka bisha">
                         <button type="button" class="activate-btn" id="activate-btn">Dhaqaaji</button>
                     </div>
                     <p class="license-msg" id="license-msg"></p>
@@ -666,10 +870,18 @@
         const totalHintEl = document.getElementById('total-hint');
         const totalSalesEl = document.getElementById('total-sales');
         const totalDebtEl = document.getElementById('total-debt');
-        const listEl = document.getElementById('transactions-list');
-        const searchInput = document.getElementById('search-input');
         const datalistEl = document.getElementById('unpaid-items');
         const paymentHintEl = document.getElementById('payment-hint');
+
+        // Sales section (cash sales only)
+        const salesListEl = document.getElementById('sales-list');
+        const salesSearchEl = document.getElementById('sales-search');
+        const salesCountEl = document.getElementById('sales-count');
+
+        // Debts section (customer debt cards only)
+        const debtListEl = document.getElementById('debt-list');
+        const debtSearchEl = document.getElementById('debt-search');
+        const debtCountEl = document.getElementById('debt-count');
 
         const stockFieldsEl = document.getElementById('stock-fields');
         const stockSelectEl = document.getElementById('stock-item');
@@ -978,20 +1190,27 @@
         }
 
         // ---------- Rendering ----------
-        function renderMainList() {
-            listEl.innerHTML = '';
-            const searchTerm = searchInput.value.toLowerCase();
-
+        function renderSummary() {
             totalSalesEl.innerText = `$${totalRevenue.toFixed(2)}`;
             totalDebtEl.innerText = money(getTotalDebtCents());
+        }
 
-            // 1. Standalone cash sales
-            const filteredCash = cashSales.filter(tx =>
-                tx.customer.toLowerCase().includes(searchTerm) ||
-                tx.description.toLowerCase().includes(searchTerm)
+        // IIBKA: completed cash sales only
+        function renderSalesList() {
+            salesListEl.innerHTML = '';
+            const term = normalize(salesSearchEl.value);
+
+            let sumC = 0;
+            cashSales.forEach(tx => { sumC += toCents(tx.amount); });
+            salesCountEl.textContent = cashSales.length + ' iib • ' + money(sumC);
+
+            const filtered = cashSales.filter(tx =>
+                !term ||
+                normalize(tx.customer).includes(term) ||
+                normalize(tx.description).includes(term)
             );
 
-            filteredCash.slice().reverse().forEach(tx => {
+            filtered.slice().reverse().forEach(tx => {
                 const el = document.createElement('div');
                 el.className = 'sale-card';
                 el.innerHTML = `
@@ -1006,13 +1225,30 @@
                         </div>
                     </div>
                 `;
-                listEl.appendChild(el);
+                salesListEl.appendChild(el);
             });
 
-            // 2. Customer ledger cards
-            Object.keys(customers).forEach(key => {
+            if (cashSales.length === 0) {
+                salesListEl.innerHTML = `<p class="text-center">Wali iib kaash ah lama gelin.</p>`;
+            } else if (filtered.length === 0) {
+                salesListEl.innerHTML = `<p class="text-center">Wax natiijo ah lama helin.</p>`;
+            }
+        }
+
+        // DEYNTA: customer debt cards only (paid items show as Bixin inside the same card)
+        function renderDebtList() {
+            debtListEl.innerHTML = '';
+            const term = normalize(debtSearchEl.value);
+            const keys = Object.keys(customers);
+
+            debtCountEl.textContent = keys.length + ' macmiil • ' + money(getTotalDebtCents()) + ' maqan';
+
+            let shown = 0;
+            keys.forEach(key => {
                 const cust = customers[key];
-                if (searchTerm && !cust.name.toLowerCase().includes(searchTerm)) return;
+                if (term &&
+                    !normalize(cust.name).includes(term) &&
+                    !cust.items.some(i => normalize(i.desc).includes(term))) return;
 
                 const balanceCents = getBalanceCents(cust);
                 const safeKey = escapeHtml(key);
@@ -1067,11 +1303,14 @@
                     </div>
                     ${rowsHtml}
                 `;
-                listEl.appendChild(card);
+                debtListEl.appendChild(card);
+                shown++;
             });
 
-            if (listEl.children.length === 0) {
-                listEl.innerHTML = `<p class="text-center">Wali wax xisaab ah lama gelin ama waa la sifeeyay.</p>`;
+            if (keys.length === 0) {
+                debtListEl.innerHTML = `<p class="text-center">Wali deyn lama gelin ama waa la sifeeyay.</p>`;
+            } else if (shown === 0) {
+                debtListEl.innerHTML = `<p class="text-center">Wax natiijo ah lama helin.</p>`;
             }
         }
 
@@ -1320,7 +1559,9 @@
         }
 
         function updateUI() {
-            renderMainList();
+            renderSummary();
+            renderSalesList();
+            renderDebtList();
             renderInventory();
             renderPurchases();
             renderExpenses();
@@ -1348,12 +1589,12 @@
         // ---------- Add records: sales / debts / payments ----------
         let lastAutoDesc = '';
 
-        form.addEventListener('submit', (e) => {
+        form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
             // Safety guard: no new records when the subscription has expired
             if (!subscriptionActive) {
-                alert('⛔ Isdiiwaangelintii waa dhammaatay.\nDhaqaaji furaha bisha si aad wax cusub u kaydiso.');
+                await uiAlert('⛔ Isdiiwaangelintii waa dhammaatay.\n\nDhaqaaji koodhka bisha si aad wax cusub u kaydiso.');
                 return;
             }
 
@@ -1374,17 +1615,17 @@
                 stockKey = stockSelectEl.value;
                 stockItem = stock[stockKey];
                 if (!stockItem) {
-                    alert('⚠️ Alaabtan stock-ga kuma jirto.');
+                    await uiAlert('⚠️ Alaabtan stock-ga kuma jirto.');
                     return;
                 }
                 qty = r3(parseFloat(qtyEl.value));
                 if (!(qty > 0)) {
-                    alert('⚠️ Fadlan geli tirada alaabta la iibiyay.');
+                    await uiAlert('⚠️ Fadlan geli tirada alaabta la iibiyay.');
                     return;
                 }
                 const remaining = stockRemaining(stockItem);
                 if (qty > remaining) {
-                    alert('⚠️ Stock kuma filna!\n\n"' + stockItem.name + '" wuxuu hadhay: ' + fmtQty(remaining) +
+                    await uiAlert('⚠️ Stock kuma filna!\n\n"' + stockItem.name + '" wuxuu hadhay: ' + fmtQty(remaining) +
                           '\nTirada aad gelisay: ' + fmtQty(qty) + '\n\nIibka lama kaydin.');
                     return;
                 }
@@ -1393,7 +1634,7 @@
                 unit = enteredAmount;
                 amount = Math.round(qty * unit * 100) / 100;
                 if (!(amount > 0)) {
-                    alert('⚠️ Wadarta guud waa inay ka weyn tahay $0.00.');
+                    await uiAlert('⚠️ Wadarta guud waa inay ka weyn tahay $0.00.');
                     return;
                 }
 
@@ -1430,7 +1671,7 @@
 
                 // 1. Customer must exist (no empty card is created on failure)
                 if (!cust) {
-                    alert('⚠️ Digniin!\n\nMacmiilkan "' + customerName + '" deyn ma laha.\nBixinta lama kaydin.');
+                    await uiAlert('⚠️ Digniin!\n\nMacmiilkan "' + customerName + '" deyn ma laha.\nBixinta lama kaydin.');
                     return;
                 }
 
@@ -1442,13 +1683,13 @@
                     const list = groups.length
                         ? '\n\nDeymaha furan ee ' + cust.name + ':\n• ' + groups.map(g => g.desc + ' (' + money(g.cents) + ')').join('\n• ')
                         : '\n\nMacmiilkan deyn furan ma lahan.';
-                    alert('⚠️ Digniin!\n\n"' + description + '" kuma jirto deymaha furan ee ' + cust.name + '.\nBixinta lama kaydin.' + list);
+                    await uiAlert('⚠️ Digniin!\n\n"' + description + '" kuma jirto deymaha furan ee ' + cust.name + '.\nBixinta lama kaydin.' + list);
                     return;
                 }
 
                 // 3. Payment cannot be more than what is still owed on that item
                 if (toCents(amount) > match.cents) {
-                    alert('⚠️ Digniin!\n\nLacagta aad gelisay ($' + amount.toFixed(2) + ') way ka badan tahay deynta hadhay (' + money(match.cents) + ') ee "' + match.desc + '".\nBixinta lama kaydin.');
+                    await uiAlert('⚠️ Digniin!\n\nLacagta aad gelisay ($' + amount.toFixed(2) + ') way ka badan tahay deynta hadhay (' + money(match.cents) + ') ee "' + match.desc + '".\nBixinta lama kaydin.');
                     return;
                 }
                 // ---- END VALIDATION ----
@@ -1463,7 +1704,8 @@
             updateUI();
         });
 
-        searchInput.addEventListener('input', updateUI);
+        salesSearchEl.addEventListener('input', renderSalesList);
+        debtSearchEl.addEventListener('input', renderDebtList);
         purchaseSearchEl.addEventListener('input', renderPurchases);
         typeEl.addEventListener('change', () => { refreshSuggestions(); toggleStockFields(); refreshStockHint(); });
         customerEl.addEventListener('input', refreshSuggestions);
@@ -1492,10 +1734,10 @@
         pQtyEl.addEventListener('input', updatePurchaseTotalHint);
         pCostEl.addEventListener('input', updatePurchaseTotalHint);
 
-        purchaseForm.addEventListener('submit', (e) => {
+        purchaseForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!subscriptionActive) {
-                alert('⛔ Isdiiwaangelintii waa dhammaatay.\nDhaqaaji furaha bisha si aad wax cusub u kaydiso.');
+                await uiAlert('⛔ Isdiiwaangelintii waa dhammaatay.\n\nDhaqaaji koodhka bisha si aad wax cusub u kaydiso.');
                 return;
             }
 
@@ -1507,7 +1749,7 @@
 
             if (!name || !(qty > 0) || !(unitCost > 0)) return;
             if (!opening && !supplier) {
-                alert('⚠️ Fadlan geli magaca alaab-qeybiyaha (Supplier).');
+                await uiAlert('⚠️ Fadlan geli magaca alaab-qeybiyaha (Supplier).');
                 return;
             }
 
@@ -1543,10 +1785,10 @@
         });
 
         // ---------- Add records: expenses & payroll ----------
-        expenseForm.addEventListener('submit', (e) => {
+        expenseForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!subscriptionActive) {
-                alert('⛔ Isdiiwaangelintii waa dhammaatay.\nDhaqaaji furaha bisha si aad wax cusub u kaydiso.');
+                await uiAlert('⛔ Isdiiwaangelintii waa dhammaatay.\n\nDhaqaaji koodhka bisha si aad wax cusub u kaydiso.');
                 return;
             }
             const amount = parseFloat(eAmountEl.value);
@@ -1567,36 +1809,51 @@
         });
 
         // ---------- Actions ----------
+        // Every delete first awaits the custom confirm pop-up. Cancel aborts safely.
+        // After OK the record is looked up again (by id), so a stale click can never
+        // delete the wrong thing.
 
         // Deleting a cash sale.
-        //  - Stock-linked: asks the stock question first. Only after OK, the quantity goes
+        //  - Stock-linked: asks the stock question. Only after OK, the quantity goes
         //    back to stock. Its cost leaves COGS automatically (the record is gone).
-        //  - Not stock-linked: deleted as before.
+        //  - Not stock-linked: also asks first (plain warning).
         // In both cases the sale's amount leaves total revenue (it was a mistaken entry).
-        function deleteCashSale(id) {
+        async function deleteCashSale(id) {
+            const first = cashSales.find(tx => tx.id === id);
+            if (!first) return;
+
+            const isLinked = !!(first.stockKey && first.qty > 0);
+            const itNow = isLinked ? stock[first.stockKey] : null;
+
+            let msg;
+            if (isLinked) {
+                msg =
+                    '⚠️ ' + STOCK_DELETE_QUESTION +
+                    '\n\n"' + first.description + '" — $' + first.amount.toFixed(2) +
+                    '\n📦 ' + (itNow ? itNow.name : first.description) + ' × ' + fmtQty(first.qty) +
+                    '\n\nIibka guud waxaa laga jarayaa: $' + first.amount.toFixed(2) + '.' +
+                    (itNow
+                        ? '\nStock-ga waxaa ku soo noqonaya: ' + fmtQty(first.qty) + '.'
+                        : '\nAlaabtan hadda stock-ga kuma jirto, sidaas darteed wax lagu soo celinayo ma jiraan.');
+            } else {
+                msg =
+                    '⚠️ Digniin!' +
+                    '\n\nWaxaad tirtirayaa iibkan:\n"' + first.description + '" — $' + first.amount.toFixed(2) +
+                    '\n\nIibka guud waxaa laga jarayaa: $' + first.amount.toFixed(2) + '.\n\nMa hubtaa?';
+            }
+
+            const ok = await uiConfirm(msg, { danger: true, okText: 'Tirtir', cancelText: 'Jooji' });
+            if (!ok) return;
+
             const index = cashSales.findIndex(tx => tx.id === id);
             if (index === -1) return;
-
             const tx = cashSales[index];
-            const isLinked = !!(tx.stockKey && tx.qty > 0);
-            const it = isLinked ? stock[tx.stockKey] : null;
-
-            if (isLinked) {
-                const msg =
-                    '⚠️ ' + STOCK_DELETE_QUESTION +
-                    '\n\n"' + tx.description + '" — $' + tx.amount.toFixed(2) +
-                    '\n📦 ' + (it ? it.name : tx.description) + ' × ' + fmtQty(tx.qty) +
-                    '\n\nIibka guud waxaa laga jarayaa: $' + tx.amount.toFixed(2) + '.' +
-                    (it
-                        ? '\nStock-ga waxaa ku soo noqonaya: ' + fmtQty(tx.qty) + '.'
-                        : '\nAlaabtan hadda stock-ga kuma jirto, sidaas darteed wax lagu soo celinayo ma jiraan.');
-                if (!confirm(msg)) return;
-            }
 
             cashSales.splice(index, 1);
             totalRevenue = Math.max(totalRevenue - tx.amount, 0);
 
             // Goods go back to stock (only after confirmation above)
+            const it = (tx.stockKey && tx.qty > 0) ? stock[tx.stockKey] : null;
             if (it) {
                 it.sold = Math.max(r3((it.sold || 0) - (tx.qty || 0)), 0);
             }
@@ -1611,31 +1868,31 @@
         //  - Revenue is never changed here.
         //  - COGS: cost of goods that go back to stock leaves COGS; cost of goods that
         //    were really sold stays counted (kept through the small adjustment).
-        function deleteCustomerItem(key, id) {
-            const cust = customers[key];
-            if (!cust) return;
+        async function deleteCustomerItem(key, id) {
+            const cust0 = customers[key];
+            if (!cust0) return;
 
-            const idx = cust.items.findIndex(i => i.id === id);
-            if (idx === -1) return;
+            const item0 = cust0.items.find(i => i.id === id);
+            if (!item0) return;
 
-            const item = cust.items[idx];
-            const rem = remainingCents(item);
-            const amtC = toCents(item.amount);
-            const isLinked = !!(item.stockKey && item.qty > 0);
-            const stockIt = isLinked ? stock[item.stockKey] : null;
+            const rem = remainingCents(item0);
+            const amtC = toCents(item0.amount);
+            const isLinked = !!(item0.stockKey && item0.qty > 0);
+            const stockIt0 = isLinked ? stock[item0.stockKey] : null;
             let returnQty = 0;
+            let msg;
 
             if (isLinked) {
                 // Goods for the unpaid share return to stock
-                returnQty = (stockIt && amtC > 0) ? r3(item.qty * rem / amtC) : 0;
+                returnQty = (stockIt0 && amtC > 0) ? r3(item0.qty * rem / amtC) : 0;
 
-                let msg =
+                msg =
                     '⚠️ ' + STOCK_DELETE_QUESTION +
-                    '\n\n"' + item.desc + '" — ' + money(amtC) +
-                    '\n📦 ' + (stockIt ? stockIt.name : item.desc) + ' × ' + fmtQty(item.qty);
+                    '\n\n"' + item0.desc + '" — ' + money(amtC) +
+                    '\n📦 ' + (stockIt0 ? stockIt0.name : item0.desc) + ' × ' + fmtQty(item0.qty);
 
                 if (rem > 0) {
-                    msg += '\n\nDeyn weli lama bixin: ' + money(rem) + ' — waxay ka baaba\'aysaa deynta ' + cust.name + '.';
+                    msg += '\n\nDeyn weli lama bixin: ' + money(rem) + ' — waxay ka baaba\'aysaa deynta ' + cust0.name + '.';
                 } else {
                     msg += '\n\nDeyntan waa la bixiyay — iibka guud iyo deynta ma isbeddelayaan.';
                 }
@@ -1644,22 +1901,28 @@
                 } else {
                     msg += '\nStock-ga wax lagu soo celinayo ma jiraan.';
                 }
-                if (!confirm(msg)) return;
 
             } else if (rem > 0) {
-                const ok = confirm(
-                    '⚠️ Digniin!\n\nDeyntan weli lama bixin:\n"' + item.desc + '" — ' + money(rem) +
-                    '\n\nHaddii aad tirtirto, waxay ka baaba\'aysaa deynta ' + cust.name + '.\n\nMa hubtaa inaad tirtirto?'
-                );
-                if (!ok) return;
+                msg =
+                    '⚠️ Digniin!\n\nDeyntan weli lama bixin:\n"' + item0.desc + '" — ' + money(rem) +
+                    '\n\nHaddii aad tirtirto, waxay ka baaba\'aysaa deynta ' + cust0.name + '.\n\nMa hubtaa inaad tirtirto?';
 
             } else {
-                const ok = confirm(
-                    'Bixintan waa la sifeeyay:\n"' + item.desc + '" — ' + money(amtC) +
-                    '\n\nTirtirkeedu ma beddelayo deynta iyo iibka guud.\n\nMa hubtaa inaad tirtirto diiwaankan?'
-                );
-                if (!ok) return;
+                msg =
+                    'Bixintan waa la sifeeyay:\n"' + item0.desc + '" — ' + money(amtC) +
+                    '\n\nTirtirkeedu ma beddelayo deynta iyo iibka guud.\n\nMa hubtaa inaad tirtirto diiwaankan?';
             }
+
+            const ok = await uiConfirm(msg, { danger: true, okText: 'Tirtir', cancelText: 'Jooji' });
+            if (!ok) return;
+
+            // Look the record up again after the answer
+            const cust = customers[key];
+            if (!cust) return;
+            const idx = cust.items.findIndex(i => i.id === id);
+            if (idx === -1) return;
+            const item = cust.items[idx];
+            const stockIt = isLinked ? stock[item.stockKey] : null;
 
             // Confirmed: COGS bookkeeping first (uses the item before it is removed)
             const contribution = debtCostCents(item);
@@ -1682,32 +1945,35 @@
             updateUI();
         }
 
-        function settleCustomer(key) {
-            if (confirm("Ma hubtaa inaad sifeyso deyntan oo aad ka saarto liiska?")) {
-                // The goods were sold: their cost stays in COGS after the card is removed
-                const cust = customers[key];
-                if (cust) {
-                    cust.items.forEach(i => { cogsAdjCents += debtCostCents(i); });
-                }
-                // Removes the card only. Revenue is NEVER reduced here.
-                delete customers[key];
-                updateUI();
-            }
+        async function settleCustomer(key) {
+            if (!customers[key]) return;
+            const ok = await uiConfirm('Ma hubtaa inaad sifeyso deyntan oo aad ka saarto liiska?', { okText: 'Sifee', cancelText: 'Jooji' });
+            if (!ok) return;
+
+            // The goods were sold: their cost stays in COGS after the card is removed
+            const cust = customers[key];
+            if (!cust) return;
+            cust.items.forEach(i => { cogsAdjCents += debtCostCents(i); });
+
+            // Removes the card only. Revenue is NEVER reduced here.
+            delete customers[key];
+            updateUI();
         }
 
         // ---------- Separate deletion: Iibka Guud (Total Sales) ----------
         // Resets total sales to $0.00 and removes the cash sale cards.
         // Also resets COGS to $0 so profit stays consistent. Stock and debts are NOT touched.
-        function clearSales() {
+        async function clearSales() {
             if (totalRevenue <= 0 && cashSales.length === 0) {
-                alert('Iibka guud horay ayuu u ahaa $0.00. Wax la tirtiro ma jiraan.');
+                await uiAlert('Iibka guud horay ayuu u ahaa $0.00. Wax la tirtiro ma jiraan.');
                 return;
             }
-            const ok = confirm(
+            const ok = await uiConfirm(
                 '⚠️ Digniin!\n\nWaxaad tirtirayaa Iibka Guud: $' + totalRevenue.toFixed(2) +
                 '\n\nDiiwaanka iibka kaashka ah ayaa sidoo kale la tirtirayaa, kharashka alaabta la iibiyay (COGS) waxaa loo celinayaa $0.' +
                 '\nDeynta maqan iyo stock-ga waa sidii oo kale (ma isbeddelayaan).' +
-                '\n\nMa hubtaa inaad tirtirto Iibka Guud?'
+                '\n\nMa hubtaa inaad tirtirto Iibka Guud?',
+                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
             );
             if (!ok) return;
 
@@ -1721,21 +1987,22 @@
         // ---------- Separate deletion: Deynta Maqan (Total Debt) ----------
         // Removes all customer debt cards. Total sales and cash sales are NOT touched.
         // Goods from removed unpaid debts are NOT returned to stock, so their cost stays in COGS.
-        function clearDebts() {
+        async function clearDebts() {
             if (Object.keys(customers).length === 0) {
-                alert('Deynta maqan horay ayay u ahayd $0.00. Wax la tirtiro ma jiraan.');
+                await uiAlert('Deynta maqan horay ayay u ahayd $0.00. Wax la tirtiro ma jiraan.');
                 return;
             }
             let hasLinkedUnpaid = false;
             Object.values(customers).forEach(c => {
                 c.items.forEach(i => { if (i.stockKey && remainingCents(i) > 0) hasLinkedUnpaid = true; });
             });
-            const ok = confirm(
+            const ok = await uiConfirm(
                 '⚠️ Digniin!\n\nWaxaad tirtirayaa dhammaan Deynta Maqan: ' + money(getTotalDebtCents()) +
                 '\n\nDhammaan kaadhadhka macmiilka ayaa la tirtirayaa.' +
                 '\nIibka Guud waa sidii oo kale (ma isbeddelayso).' +
                 (hasLinkedUnpaid ? '\nAlaabta stock-ga ee deymahan lagu iibiyay looma soo celinayo stock-ga.' : '') +
-                '\n\nMa hubtaa inaad tirtirto Deynta Maqan?'
+                '\n\nMa hubtaa inaad tirtirto Deynta Maqan?',
+                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
             );
             if (!ok) return;
 
@@ -1752,28 +2019,37 @@
         // If part of the purchase was already sold, the deletion is refused first
         // (stock cannot go below zero). Otherwise the stock question is asked, and the
         // quantity is removed from stock only after OK.
-        function deletePurchase(id) {
-            const idx = purchases.findIndex(p => p.id === id);
-            if (idx === -1) return;
-            const p = purchases[idx];
-            const it = stock[p.key];
+        async function deletePurchase(id) {
+            const p0 = purchases.find(p => p.id === id);
+            if (!p0) return;
+            const it0 = stock[p0.key];
 
-            let take = 0;
-            const field = p.opening ? 'opening' : 'bought';
-            if (it) {
-                take = Math.min(it[field] || 0, p.qty);
-                if (r3(stockRemaining(it) - take) < 0) {
-                    alert('⚠️ Lama tirtiri karo!\n\nAlaabtan qayb ka mid ah waa la iibiyay, stock-gana ma filna si laga jaro ' + fmtQty(take) + '.');
+            let take0 = 0;
+            const field0 = p0.opening ? 'opening' : 'bought';
+            if (it0) {
+                take0 = Math.min(it0[field0] || 0, p0.qty);
+                if (r3(stockRemaining(it0) - take0) < 0) {
+                    await uiAlert('⚠️ Lama tirtiri karo!\n\nAlaabtan qayb ka mid ah waa la iibiyay, stock-gana ma filna si laga jaro ' + fmtQty(take0) + '.');
                     return;
                 }
             }
 
-            const ok = confirm(
+            const ok = await uiConfirm(
                 '⚠️ ' + STOCK_DELETE_QUESTION +
-                '\n\n"' + p.item + '" × ' + fmtQty(p.qty) + ' — $' + Number(p.total).toFixed(2) +
-                (it ? '\n\nStock-ga waxaa laga jarayaa: ' + fmtQty(take) + '.' : '')
+                '\n\n"' + p0.item + '" × ' + fmtQty(p0.qty) + ' — $' + Number(p0.total).toFixed(2) +
+                (it0 ? '\n\nStock-ga waxaa laga jarayaa: ' + fmtQty(take0) + '.' : ''),
+                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
             );
             if (!ok) return;
+
+            // Look the record up again after the answer
+            const idx = purchases.findIndex(p => p.id === id);
+            if (idx === -1) return;
+            const p = purchases[idx];
+            const it = stock[p.key];
+            const field = p.opening ? 'opening' : 'bought';
+            const take = it ? Math.min(it[field] || 0, p.qty) : 0;
+            if (it && r3(stockRemaining(it) - take) < 0) return;
 
             if (it) it[field] = r3((it[field] || 0) - take);
             purchases.splice(idx, 1);
@@ -1781,42 +2057,51 @@
         }
 
         // ---------- Delete: stock item (inventory row) ----------
-        function deleteStockItem(key) {
-            const it = stock[key];
-            if (!it) return;
-            const ok = confirm(
-                '⚠️ Digniin!\n\nWaxaad ka saarayaa stock-ga:\n"' + it.name + '" (hadhay: ' + fmtQty(stockRemaining(it)) + ')' +
+        async function deleteStockItem(key) {
+            const it0 = stock[key];
+            if (!it0) return;
+            const ok = await uiConfirm(
+                '⚠️ Digniin!\n\nWaxaad ka saarayaa stock-ga:\n"' + it0.name + '" (hadhay: ' + fmtQty(stockRemaining(it0)) + ')' +
                 '\n\nDiiwaanka iibsashada waa hadhayaa, iibka iyo deymuhuna ma isbeddelayaan.' +
-                '\n\nMa hubtaa inaad tirtirto?'
+                '\n\nMa hubtaa inaad tirtirto?',
+                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
             );
             if (!ok) return;
+            if (!stock[key]) return;
             delete stock[key];
             updateUI();
         }
 
         // ---------- Delete: expense ----------
-        function deleteExpense(id) {
-            const idx = expenses.findIndex(e => e.id === id);
-            if (idx === -1) return;
-            const e = expenses[idx];
-            const ok = confirm(
-                '⚠️ Digniin!\n\nWaxaad tirtirayaa kharashka:\n' + (EXP_CATS[e.category] || 'Kale') +
-                (e.desc ? ' — ' + e.desc : '') + ' — $' + Number(e.amount).toFixed(2) +
-                '\n\nFaa\'iidada saafiga ah ayaa is beddelaysa.\n\nMa hubtaa?'
+        async function deleteExpense(id) {
+            const e0 = expenses.find(e => e.id === id);
+            if (!e0) return;
+            const ok = await uiConfirm(
+                '⚠️ Digniin!\n\nWaxaad tirtirayaa kharashka:\n' + (EXP_CATS[e0.category] || 'Kale') +
+                (e0.desc ? ' — ' + e0.desc : '') + ' — $' + Number(e0.amount).toFixed(2) +
+                '\n\nFaa\'iidada saafiga ah ayaa is beddelaysa.\n\nMa hubtaa?',
+                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
             );
             if (!ok) return;
+            const idx = expenses.findIndex(e => e.id === id);
+            if (idx === -1) return;
             expenses.splice(idx, 1);
             updateUI();
         }
 
         // ---------- Event delegation for all list buttons ----------
-        listEl.addEventListener('click', (e) => {
+        salesListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            if (btn.dataset.action === 'delete-cash') deleteCashSale(btn.dataset.id);
+        });
+
+        debtListEl.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-action]');
             if (!btn) return;
             const { action, id, key } = btn.dataset;
 
-            if (action === 'delete-cash') deleteCashSale(id);
-            else if (action === 'delete-item') deleteCustomerItem(key, id);
+            if (action === 'delete-item') deleteCustomerItem(key, id);
             else if (action === 'settle') settleCustomer(key);
         });
 
@@ -1835,19 +2120,21 @@
         });
 
         inventoryListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-action="delete-stock"]');
-            if (btn) deleteStockItem(btn.dataset.key);
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            if (btn.dataset.action === 'delete-stock') deleteStockItem(btn.dataset.key);
         });
 
         expensesListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-action="delete-expense"]');
-            if (btn) deleteExpense(btn.dataset.id);
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            if (btn.dataset.action === 'delete-expense') deleteExpense(btn.dataset.id);
         });
 
         document.getElementById('clear-sales-btn').addEventListener('click', clearSales);
         document.getElementById('clear-debt-btn').addEventListener('click', clearDebts);
 
-        // ---------- Start ----------
+        // ---------- Startup ----------
         migrateCustomers();
         renderSubscriptionUI();
         applyReadOnlyMode();
