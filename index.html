@@ -1732,10 +1732,10 @@
 
             if (!res) return;
 
+            const key = normalize(name);
             if (!stock[key]) {
                 stock[key] = { name, opening: 0, bought: 0, sold: 0, avgCost: 0 };
             }
-            const key = normalize(name);
             const it = stock[key];
 
             const before = Math.max(stockRemaining(it), 0);
