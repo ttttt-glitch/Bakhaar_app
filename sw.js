@@ -1,5 +1,5 @@
 // Service Worker for Xisaabta Ganacsigaaga
-const CACHE_NAME = 'bakhaar-cache-v17';
+const CACHE_NAME = 'bakhaar-cache-v18';
 
 // Must exist or the app will not install offline
 const CORE_ASSETS = [
