@@ -46,18 +46,15 @@
         .hint.total { font-weight: 700; font-size: 0.78rem; }
         .partial-note { font-size: 10px; color: #b45309; display: block; margin-top: 0.15rem; }
 
-        /* ----- Sales / Debts sections ----- */
         .sec-count { font-size: 0.7rem; font-weight: 700; padding: 0.2rem 0.55rem; border-radius: 999px; background: #ecfdf5; color: #047857; border: 1px solid #a7f3d0; white-space: nowrap; }
         .sec-count.debt { background: #fff1f2; color: #be123c; border-color: #fecdd3; }
         .sec-search { margin-bottom: 0.75rem; }
 
-        /* ----- Tabs (inside sticky header) ----- */
         .tabs { max-width: 28rem; margin: 0.65rem auto 0; display: flex; gap: 0.35rem; }
         .tab-btn { flex: 1; background: rgba(255,255,255,0.15); color: white; border: none; border-radius: 0.5rem; padding: 0.5rem 0.2rem; font-size: 0.7rem; font-weight: 600; cursor: pointer; }
         .tab-btn.active { background: white; color: #047857; }
         .tab-panel { display: flex; flex-direction: column; gap: 1.5rem; }
 
-        /* ----- Subscription status strip ----- */
         .sub-status { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.75rem; padding: 0.5rem 0.75rem; border-radius: 0.5rem; background: #ecfdf5; border: 1px solid #a7f3d0; color: #065f46; }
         .sub-status.warn { background: #fffbeb; border-color: #fde68a; color: #92400e; }
         .sub-status.expired { background: #fff1f2; border-color: #fecdd3; color: #9f1239; }
@@ -65,7 +62,6 @@
         .sub-btns { display: flex; gap: 0.3rem; flex-shrink: 0; }
         .phone-btn { flex-shrink: 0; font-size: 0.7rem; background: white; border: 1px solid currentColor; color: inherit; border-radius: 0.4rem; padding: 0.25rem 0.5rem; cursor: pointer; }
 
-        /* ----- Expired banner + activation box ----- */
         #sub-banner:empty { display: none; }
         .expired-banner { background: #fff1f2; border: 2px solid #e11d48; border-radius: 0.6rem; padding: 0.85rem; }
         .expired-banner .t { font-weight: 700; color: #9f1239; font-size: 0.95rem; margin-bottom: 0.3rem; }
@@ -76,7 +72,6 @@
         .activate-btn:hover { background: #be123c; }
         .license-msg { font-size: 0.75rem; color: #be123c; margin-top: 0.5rem; min-height: 1em; }
 
-        /* ----- Stock / purchases / expenses ----- */
         #stock-fields { display: flex; flex-direction: column; gap: 0.75rem; }
         .stock-row { background: #eff6ff; border: 1px solid #bfdbfe; border-radius: 0.5rem; padding: 0.65rem 0.75rem; display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; }
         .stock-name { font-weight: 700; color: #1e3a8a; font-size: 0.9rem; }
@@ -96,7 +91,6 @@
         .pl-net.loss { background: #fff1f2; border: 2px solid #fb7185; color: #be123c; }
         .pl-info { font-size: 0.72rem; color: #64748b; margin-top: 0.6rem; line-height: 1.5; }
 
-        /* ----- Supplier ledger (grouped purchases) ----- */
         .sup-search { margin-bottom: 0.6rem; }
         .sup-card { background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 0.6rem; overflow: hidden; flex-shrink: 0; }
         .sup-head { width: 100%; display: flex; align-items: center; gap: 0.5rem; background: none; border: none; text-align: left; padding: 0.65rem 0.75rem; cursor: pointer; color: inherit; }
@@ -115,7 +109,6 @@
         .sup-line .amt { font-weight: 700; color: #4c1d95; }
         .sup-right { display: flex; align-items: center; gap: 0.2rem; flex-shrink: 0; }
 
-        /* ----- Custom modal (replaces prompt / confirm / alert) ----- */
         .modal-overlay { position: fixed; inset: 0; background: rgba(15, 23, 42, 0.55); display: flex; align-items: center; justify-content: center; padding: 1rem; z-index: 200; }
         .modal-box { background: white; width: 100%; max-width: 22rem; border-radius: 1rem; padding: 1.1rem 1.1rem 0.9rem; box-shadow: 0 10px 30px rgba(0,0,0,0.3); max-height: 85vh; overflow-y: auto; }
         .modal-title { font-weight: 700; font-size: 0.98rem; color: #0f172a; white-space: pre-line; line-height: 1.35; }
@@ -127,9 +120,20 @@
         .modal-btn-cancel { background: #e2e8f0; color: #334155; }
         .modal-btn-ok { background: #059669; color: white; }
         .modal-btn-ok.danger { background: #e11d48; }
+
+        /* SNIPPET 1: credit fields + AP journal rows */
+        #p-credit-fields { display: flex; flex-direction: column; gap: 0.75rem; }
+        .ap-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 0.5rem; padding: 0.55rem 0.7rem; font-size: 0.8rem; margin-top: 0.4rem; }
+        .ap-row.late { background: #fff1f2; border-color: #fecdd3; }
+        .ap-row .n { font-weight: 700; color: #4c1d95; }
+        .ap-row.late .n { color: #9f1239; }
+        .ap-row .s { font-size: 0.68rem; color: #64748b; margin-top: 0.1rem; }
+        .jr-head { font-size: 0.78rem; font-weight: 700; color: #334155; margin-top: 0.9rem; }
+        .jr-check { font-size: 0.72rem; margin-top: 0.5rem; }
+        .jr-check.ok { color: #047857; }
+        .jr-check.bad { color: #be123c; }
     </style>
 
-    <!-- PWA Manifest, Icons & Service Worker Registration -->
     <link rel="manifest" href="/Bakhaar_app/manifest.json">
     <link rel="icon" type="image/png" href="/Bakhaar_app/icon-192.png">
     <link rel="apple-touch-icon" href="/Bakhaar_app/icon-192.png">
@@ -143,7 +147,6 @@
 </head>
 <body>
 
-    <!-- Header + Tabs -->
     <header>
         <div class="max">
             <h1 style="font-size: 1.15rem; font-weight: bold;">🛒 Xisaabta Ganacsigaaga</h1>
@@ -159,16 +162,12 @@
 
     <main>
 
-        <!-- Subscription status strip (visible on every tab) -->
         <div id="sub-status" class="sub-status"></div>
 
-        <!-- ==================== TAB 1: SALES & DEBT ==================== -->
         <section id="tab-main" class="tab-panel">
 
-            <!-- Expired warning + offline activation box (filled by script when expired) -->
             <div id="sub-banner"></div>
 
-            <!-- Summary Cards (each has its own separate delete button) -->
             <div class="grid-2">
                 <div class="card">
                     <p class="label">Iibka Guud (Total Sales)</p>
@@ -182,7 +181,6 @@
                 </div>
             </div>
 
-            <!-- Quick Actions Form -->
             <div class="card">
                 <h2>Diiwaangelinta Wax Kala iibsiga/Deynta</h2>
 
@@ -196,7 +194,6 @@
                         </select>
                     </div>
 
-                    <!-- Stock link (shown for sale/debt when stock items exist) -->
                     <div id="stock-fields" hidden>
                         <div>
                             <label>Alaabta Stock-ga (ikhtiyaari / optional)</label>
@@ -231,7 +228,6 @@
                 </form>
             </div>
 
-            <!-- ===== SECTION: IIBKA (Sales / items sold) ===== -->
             <div class="card" id="sales-section">
                 <h2>
                     <span>🛒 Iibka (Sales)</span>
@@ -245,7 +241,6 @@
                 </div>
             </div>
 
-            <!-- ===== SECTION: DEYNTA (Debts) ===== -->
             <div class="card" id="debt-section">
                 <h2>
                     <span>📒 Deynta (Debts)</span>
@@ -260,7 +255,6 @@
             </div>
         </section>
 
-        <!-- ==================== TAB 2: PURCHASING / STOCK-IN ==================== -->
         <section id="tab-buy" class="tab-panel" hidden>
             <div class="card">
                 <h2>Diiwaangelinta Iibsashada Alaabta (Stock-In)</h2>
@@ -292,6 +286,20 @@
                         <input type="text" id="p-supplier" list="supplier-names" placeholder="Tusaale: Cali Wholesale" autocomplete="off">
                         <datalist id="supplier-names"></datalist>
                     </div>
+
+                    <!-- SNIPPET 2a: Credit fields -->
+                    <div id="p-credit-fields">
+                        <div>
+                            <label>Lacagta hadda la bixiyay (Amount Paid Now, USD)</label>
+                            <input type="number" step="any" min="0" id="p-paid" placeholder="Bannaan = wadarta oo dhan">
+                            <p id="p-credit-hint" class="hint info" hidden></p>
+                        </div>
+                        <div id="p-due-wrap" hidden>
+                            <label>Taariikhda lacag-bixinta (Due Date)</label>
+                            <input type="date" id="p-due">
+                        </div>
+                    </div>
+
                     <button type="submit" class="save-btn" id="p-save-btn">Kaydi Iibsashada (Save)</button>
                 </form>
             </div>
@@ -299,21 +307,18 @@
             <div class="card">
                 <h2><span>Diiwaanka Alaab-qeybiyayaasha</span></h2>
 
-                <!-- Search by supplier name or item type -->
                 <div class="sup-search">
                     <input type="search" id="purchase-search" placeholder="🔍 Raadi alaab-qeybiye ama alaab..." autocomplete="off">
                 </div>
 
                 <p class="sub-note" id="purchases-summary"></p>
 
-                <!-- Purchases grouped by supplier -->
                 <div id="purchases-list" class="list-container" style="max-height: 32rem;">
                     <p class="text-center">Wali iibsasho lama gelin.</p>
                 </div>
             </div>
         </section>
 
-        <!-- ==================== TAB 3: INVENTORY ==================== -->
         <section id="tab-stock" class="tab-panel" hidden>
             <div class="card">
                 <h2><span>Diiwaanka Stock-ga (Inventory)</span></h2>
@@ -324,16 +329,19 @@
             </div>
         </section>
 
-        <!-- ==================== TAB 4: ACCOUNTING ==================== -->
         <section id="tab-acct" class="tab-panel" hidden>
 
-            <!-- Profit & Loss summary -->
             <div class="card">
                 <h2><span>Faa'iidada & Khasaaraha (Profit & Loss)</span></h2>
                 <div id="pl-card"></div>
             </div>
 
-            <!-- Expense & payroll form -->
+            <!-- SNIPPET 2b: Supplier AP & Journal card -->
+            <div class="card">
+                <h2><span>📥 Iibsashada & Deymaha Alaab-qeybiyayaasha</span></h2>
+                <div id="journal-card"></div>
+            </div>
+
             <div class="card">
                 <h2>Diiwaangelinta Kharashka & Mushaharka</h2>
 
@@ -372,7 +380,6 @@
 
     </main>
 
-    <!-- Custom modal: used instead of the browser's prompt() / confirm() / alert() -->
     <div id="modal-overlay" class="modal-overlay" hidden>
         <div class="modal-box" role="dialog" aria-modal="true" aria-labelledby="modal-title">
             <p id="modal-title" class="modal-title"></p>
@@ -388,7 +395,7 @@
 
     <script>
         // =====================================================================
-        //  CUSTOM MODALS (Promise + async/await)
+        //  CUSTOM MODALS
         // =====================================================================
         const modalOverlay = document.getElementById('modal-overlay');
         const modalTitleEl = document.getElementById('modal-title');
@@ -514,10 +521,7 @@
         const LS_LAST_SEEN = 'ganacsi_last_seen';
 
         function pad2(n) { return String(n).padStart(2, '0'); }
-
-        function toISODate(d) {
-            return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
-        }
+        function toISODate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
 
         function endOfDay(iso) {
             const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
@@ -566,9 +570,6 @@
         const isVip = isVipUser();
         const subscriptionActive = (nowDate <= expiryDate || isVip);
 
-        // =====================================================================
-        //  MONTHLY CODE VERIFICATION
-        // =====================================================================
         const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
         const CODE_LENGTH = 6;
 
@@ -594,9 +595,7 @@
             return out;
         }
 
-        function normalizeCode(raw) {
-            return String(raw).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        }
+        function normalizeCode(raw) { return String(raw).toUpperCase().replace(/[^A-Z0-9]/g, ''); }
 
         function matchMonthlyCode(raw) {
             const entered = normalizeCode(raw);
@@ -634,17 +633,11 @@
             }
 
             const match = matchMonthlyCode(raw);
-            if (!match) {
-                setLicenseMsg('Koodhkan waa khalad.');
-                return;
-            }
+            if (!match) { setLicenseMsg('Koodhkan waa khalad.'); return; }
 
             let used = [];
             try { used = JSON.parse(localStorage.getItem(LS_USED_KEYS)) || []; } catch (e) { used = []; }
-            if (used.includes(match.tag)) {
-                setLicenseMsg('Koodhkan hore ayaa loo isticmaalay.');
-                return;
-            }
+            if (used.includes(match.tag)) { setLicenseMsg('Koodhkan hore ayaa loo isticmaalay.'); return; }
 
             const base = expiryDate > nowDate ? new Date(expiryDate.getTime()) : new Date(nowDate.getTime());
             base.setHours(12, 0, 0, 0);
@@ -661,18 +654,12 @@
 
         async function askPhoneNumber() {
             const val = await uiPrompt('Geli lambarka telefonkaga', {
-                inputType: 'tel',
-                inputMode: 'numeric',
-                okText: 'Kaydi',
-                cancelText: 'Jooji'
+                inputType: 'tel', inputMode: 'numeric', okText: 'Kaydi', cancelText: 'Jooji'
             });
             if (val === null) return;
             const digits = digitsOnly(val);
-            if (!digits) {
-                localStorage.removeItem(LS_PHONE);
-            } else {
-                localStorage.setItem(LS_PHONE, digits);
-            }
+            if (!digits) localStorage.removeItem(LS_PHONE);
+            else localStorage.setItem(LS_PHONE, digits);
             location.reload();
         }
 
@@ -693,10 +680,8 @@
 
             let cls = 'sub-status';
             let text;
-            if (isVip) {
-                cls += ' vip';
-                text = '⭐ VIP — marna lama xiro';
-            } else if (subscriptionActive) {
+            if (isVip) { cls += ' vip'; text = '⭐ VIP — marna lama xiro'; }
+            else if (subscriptionActive) {
                 if (daysLeft <= 5) cls += ' warn';
                 text = '✅ Ku shaqeynaya ilaa ' + expiryTxt + ' (' + daysLeft + ' maalmood ayaa hadhay)';
             } else {
@@ -718,10 +703,7 @@
                 if (b) b.scrollIntoView({ behavior: 'smooth', block: 'center' });
             });
 
-            if (subscriptionActive) {
-                bannerEl.innerHTML = '';
-                return;
-            }
+            if (subscriptionActive) { bannerEl.innerHTML = ''; return; }
 
             bannerEl.innerHTML = `
                 <div class="expired-banner">
@@ -748,43 +730,30 @@
 
         function escapeHtml(str) {
             return String(str)
-                .replace(/&/g, '&amp;')
-                .replace(/</g, '&lt;')
-                .replace(/>/g, '&gt;')
-                .replace(/"/g, '&quot;')
-                .replace(/'/g, '&#39;');
+                .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
         }
 
         function loadJSON(key, fallback) {
             try {
                 const raw = localStorage.getItem(key);
                 return raw ? JSON.parse(raw) : fallback;
-            } catch (e) {
-                return fallback;
-            }
+            } catch (e) { return fallback; }
         }
 
-        function normalize(str) {
-            return String(str).trim().toLowerCase().replace(/\s+/g, ' ');
-        }
+        function normalize(str) { return String(str).trim().toLowerCase().replace(/\s+/g, ' '); }
 
         const toCents = n => Math.round((Number(n) || 0) * 100);
 
-        function money(cents) {
-            return '$' + (cents / 100).toFixed(2);
-        }
-
-        function moneySigned(cents) {
-            return (cents < 0 ? '-' : '') + '$' + (Math.abs(cents) / 100).toFixed(2);
-        }
+        function money(cents) { return '$' + (cents / 100).toFixed(2); }
+        function moneySigned(cents) { return (cents < 0 ? '-' : '') + '$' + (Math.abs(cents) / 100).toFixed(2); }
 
         function r3(n) { return Math.round((Number(n) || 0) * 1000) / 1000; }
         function fmtQty(n) { return String(r3(n)); }
 
         // =====================================================================
-        //  === SNIPPET 1: CREDIT PURCHASE PURE LOGIC ===
+        //  SNIPPET 1: CREDIT PURCHASE PURE LOGIC
         // =====================================================================
-        // ---------- Credit purchase (pure function: never changes existing records) ----------
         const fromCents = c => c / 100;
         const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -793,7 +762,6 @@
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
 
-        // Makes an object and everything inside it read-only
         function deepFreeze(obj) {
             Object.values(obj).forEach(v => {
                 if (v && typeof v === 'object' && !Object.isFrozen(v)) deepFreeze(v);
@@ -801,7 +769,6 @@
             return Object.freeze(obj);
         }
 
-        // Double-entry lines: Debit Inventory Asset = Credit Cash (upfront) + Credit Accounts Payable (balance)
         function buildJournal(txnId, date, memo, totalC, paidC, balanceC) {
             const line = (account, debitC, creditC) =>
                 ({ txnId, date, account, debit: fromCents(debitC), credit: fromCents(creditC), memo });
@@ -816,19 +783,11 @@
             return lines;
         }
 
-        /*
-          data = { vendorName, itemName, quantity, totalAmount, amountPaid,
-                   debtIncurredDate ('YYYY-MM-DD', defaults to today), dueDate ('YYYY-MM-DD'), id (optional) }
-          vendors = current vendor ledger: { "cali wholesale": { name, balanceCents, lastPurchaseDate } }
-
-          Returns { ok:false, errors:[...] }  or  frozen { ok:true, purchase, vendor, vendors, journal }
-          Nothing passed in is changed. You get NEW objects back.
-        */
         function processCreditPurchase(data, vendors = {}) {
             const errors = [];
             const vendorName = String(data.vendorName || '').trim().replace(/\s+/g, ' ');
             const totalC = toCents(data.totalAmount);
-            const paidC = toCents(data.amountPaid || 0);          // 400 = Scenario A, 0 = Scenario B
+            const paidC = toCents(data.amountPaid || 0);
             const incurred = data.debtIncurredDate || todayISO();
             const dueDate = data.dueDate || null;
 
@@ -837,7 +796,7 @@
             if (paidC < 0 || paidC > totalC) errors.push('Lacagta hore la bixiyay waa inay u dhaxaysaa 0 iyo wadarta.');
             if (!ISO_DATE.test(incurred)) errors.push('Taariikhda deynta waa khalad (YYYY-MM-DD).');
 
-            const balanceC = totalC - paidC;                       // balance due
+            const balanceC = totalC - paidC;
             if (balanceC > 0) {
                 if (!dueDate || !ISO_DATE.test(dueDate)) errors.push('Taariikhda lacag-bixinta (dueDate) waa loo baahan yahay.');
                 else if (dueDate < incurred) errors.push('dueDate ma noqon karto ka hor taariikhda deynta.');
@@ -848,7 +807,6 @@
             const key = vendorName.toLowerCase();
             const prev = vendors[key] || { name: vendorName, balanceCents: 0 };
 
-            // New vendor record with the updated running balance (the old one is untouched)
             const vendor = {
                 ...prev,
                 balanceCents: prev.balanceCents + balanceC,
@@ -882,25 +840,145 @@
         }
 
         // =====================================================================
-        //  === SNIPPET 3: SAVING WITHOUT EDITING OLD RECORDS ===
+        //  SNIPPET 5: SAVE CREDIT PURCHASE (ledger + journal only)
         // =====================================================================
-        let vendorLedger = loadJSON('ganacsi_vendor_ledger', {});
-        let journalLog = loadJSON('ganacsi_journal', []);
-
         async function saveCreditPurchase(data) {
             const result = processCreditPurchase(data, vendorLedger);
             if (!result.ok) {
                 await uiAlert('⚠️ Digniin!\n\n' + result.errors.join('\n'));
                 return null;
             }
-            vendorLedger = result.vendors;                     // replace, never edit in place
-            journalLog = [...journalLog, ...result.journal];   // append only
-            purchases = [...purchases, result.purchase];
+            vendorLedger = result.vendors;
+            journalLog = [...journalLog, ...result.journal];
             localStorage.setItem('ganacsi_vendor_ledger', JSON.stringify(vendorLedger));
             localStorage.setItem('ganacsi_journal', JSON.stringify(journalLog));
-            saveData();
             return result;
         }
+
+        // =====================================================================
+        //  SNIPPET 7a: REVERSING ENTRIES FOR DELETED PURCHASES
+        // =====================================================================
+        function reverseCreditPurchase(rec, vendors, date) {
+            const txnId = rec.id + '-rev';
+            const totalC = toCents(rec.total), paidC = toCents(rec.paid), balC = toCents(rec.balanceDue);
+            const memo = 'Rarayn (tirtir): ' + rec.item + ' — ' + rec.supplier;
+            const line = (account, debitC, creditC) => ({
+                txnId, reversalOf: rec.id, date, account,
+                debit: fromCents(debitC), credit: fromCents(creditC), memo
+            });
+
+            const lines = [];
+            if (paidC > 0) lines.push(line('Cash', paidC, 0));
+            if (balC > 0) lines.push(line('Accounts Payable', balC, 0));
+            lines.push(line('Inventory Asset', 0, totalC));
+
+            const key = normalize(rec.supplier || '');
+            const prev = vendors[key];
+            const next = prev
+                ? { ...vendors, [key]: { ...prev, balanceCents: Math.max(prev.balanceCents - balC, 0) } }
+                : vendors;
+
+            return deepFreeze({ vendors: next, journal: lines });
+        }
+
+        function applyCreditReversal(rec) {
+            const rev = reverseCreditPurchase(rec, vendorLedger, todayISO());
+            vendorLedger = rev.vendors;
+            journalLog = [...journalLog, ...rev.journal];
+            localStorage.setItem('ganacsi_vendor_ledger', JSON.stringify(vendorLedger));
+            localStorage.setItem('ganacsi_journal', JSON.stringify(journalLog));
+        }
+
+        // =====================================================================
+        //  SNIPPET 8a: JOURNAL TOTALS + JOURNAL CARD RENDERER
+        // =====================================================================
+        function journalTotals() {
+            const t = { invDr: 0, invCr: 0, cashOut: 0, cashIn: 0, apCr: 0, apDr: 0 };
+            journalLog.forEach(l => {
+                const d = toCents(l.debit), c = toCents(l.credit);
+                if (l.account === 'Inventory Asset') { t.invDr += d; t.invCr += c; }
+                else if (l.account === 'Cash') { t.cashOut += c; t.cashIn += d; }
+                else if (l.account === 'Accounts Payable') { t.apCr += c; t.apDr += d; }
+            });
+            return {
+                inventoryNet: t.invDr - t.invCr,
+                cashPaidNet: t.cashOut - t.cashIn,
+                payableNet: t.apCr - t.apDr
+            };
+        }
+
+        function renderJournalCard() {
+            const el = document.getElementById('journal-card');
+            if (!journalLog.length) {
+                el.innerHTML = '<p class="text-center">Wali journal lama gelin. Iibsasho cusub ayaa halkan ka muuqan doonta.</p>';
+                return;
+            }
+
+            const t = journalTotals();
+            const today = todayISO();
+            const allVendors = Object.values(vendorLedger);
+            const owing = allVendors.filter(v => v.balanceCents > 0).sort((a, b) => b.balanceCents - a.balanceCents);
+            const vendorSumC = allVendors.reduce((s, v) => s + v.balanceCents, 0);
+            const balanced = vendorSumC === t.payableNet;
+
+            const vendorRows = owing.map(v => {
+                const key = normalize(v.name);
+                const dues = purchases
+                    .filter(p => p.balanceDue > 0 && p.dueDate && normalize(p.supplier || '') === key)
+                    .map(p => p.dueDate).sort();
+                const next = dues[0];
+                const late = !!next && next < today;
+                const sub = next ? (late ? '⚠️ Waa dhacay: ' : 'Lacag-bixin: ') + next : 'Taariikh lama gelin';
+                return `
+                    <div class="ap-row ${late ? 'late' : ''}">
+                        <div><div class="n">🏭 ${escapeHtml(v.name)}</div><div class="s">${escapeHtml(sub)}</div></div>
+                        <b>${money(v.balanceCents)}</b>
+                    </div>`;
+            }).join('') || '<p class="text-center">Alaab-qeybiye deyn lagu leeyahay ma jiro.</p>';
+
+            const recent = journalLog.slice(-6).reverse().map(l => {
+                const dr = toCents(l.debit);
+                const amt = dr > 0 ? 'Dr ' + money(dr) : 'Cr ' + money(toCents(l.credit));
+                return `<div class="pl-sub"><span>${escapeHtml(l.date)} • ${escapeHtml(l.account)}</span><span>${amt}</span></div>`;
+            }).join('');
+
+            el.innerHTML = `
+                <div class="pl-line"><span>💵 Lacag baxday (Cash Out)</span><b>${money(t.cashPaidNet)}</b></div>
+                <div class="pl-line"><span>📒 Deyn la leeyahay (Accounts Payable)</span><b>${money(t.payableNet)}</b></div>
+                <div class="pl-line strong"><span>📦 Isbeddelka Inventory Asset</span><span>${moneySigned(t.inventoryNet)}</span></div>
+
+                <p class="jr-head">Hadhaagga alaab-qeybiyayaasha</p>
+                ${vendorRows}
+                <p class="jr-check ${balanced ? 'ok' : 'bad'}">${balanced
+                    ? '✅ Hadhaagga alaab-qeybiyayaasha wuu ku dheggan yahay journal-ka.'
+                    : '⚠️ Hadhaagga (' + money(vendorSumC) + ') iyo journal-ka (' + money(t.payableNet) + ') isma raacayaan.'}</p>
+
+                <p class="jr-head">Diiwaanka journal-ka ugu dambeeyay</p>
+                ${recent}
+                <p class="pl-info">Journal-ka waxaa ku jira iibsashada cusub oo keliya. Stock bilow iyo iibsashadii hore kuma jiraan.</p>
+            `;
+        }
+
+        // =====================================================================
+        //  SNIPPET 9a: CREDIT TAG HELPER
+        // =====================================================================
+        function creditTag(p) {
+            if (p.status === 'paid') return ' • ✅ la bixiyay';
+            if (p.balanceDue > 0) return ' • 💳 deyn ' + money(toCents(p.balanceDue)) + (p.dueDate ? ' • dhaco ' + p.dueDate : '');
+            return '';
+        }
+
+        // =====================================================================
+        //  SNIPPET 3: STATE (ledger, journal, credit field refs)
+        // =====================================================================
+        let vendorLedger = loadJSON('ganacsi_vendor_ledger', {});
+        let journalLog = loadJSON('ganacsi_journal', []);
+
+        const pPaidEl = document.getElementById('p-paid');
+        const pDueEl = document.getElementById('p-due');
+        const pDueWrapEl = document.getElementById('p-due-wrap');
+        const pCreditFieldsEl = document.getElementById('p-credit-fields');
+        const pCreditHintEl = document.getElementById('p-credit-hint');
 
         // =====================================================================
         //  STATE DECLARATIONS
@@ -1200,6 +1278,37 @@
         }
 
         // =====================================================================
+        //  SNIPPET 4: CONDITIONAL DUE DATE & LIVE HINT
+        // =====================================================================
+        function refreshCreditFields() {
+            const opening = pTypeEl.value === 'opening';
+            pCreditFieldsEl.hidden = opening;
+            if (opening) { pDueEl.required = false; return; }
+
+            const q = parseFloat(pQtyEl.value);
+            const c = parseFloat(pCostEl.value);
+            const totalC = (q > 0 && c > 0) ? Math.round(q * c * 100) : 0;
+            const raw = pPaidEl.value.trim();
+            const paidC = raw === '' ? totalC : toCents(raw);
+            const balanceC = totalC - paidC;
+            const credit = totalC > 0 && balanceC > 0;
+
+            pDueWrapEl.hidden = !credit;
+            pDueEl.required = credit;
+            if (!credit) pDueEl.value = '';
+
+            if (totalC === 0) { pCreditHintEl.hidden = true; return; }
+            pCreditHintEl.hidden = false;
+            if (paidC < 0 || balanceC < 0) {
+                pCreditHintEl.textContent = '⚠️ Lacagta la bixiyay waa inay u dhaxaysaa $0.00 iyo ' + money(totalC) + '.';
+            } else if (credit) {
+                pCreditHintEl.textContent = '💳 Deyn hadhay: ' + money(balanceC) + ' — taariikhda lacag-bixinta waa loo baahan yahay.';
+            } else {
+                pCreditHintEl.textContent = '✅ Waa la bixiyay oo dhan: ' + money(paidC) + ' (deyn ma jirto).';
+            }
+        }
+
+        // =====================================================================
         //  RENDERING FUNCTIONS
         // =====================================================================
         function renderSummary() {
@@ -1441,7 +1550,7 @@
                             <div class="sup-line">
                                 <div>
                                     <div class="it">${p.opening ? '📋 ' : ''}${escapeHtml(p.item)}</div>
-                                    <div class="sub">×${fmtQty(p.qty)} @ $${Number(p.unitCost).toFixed(2)} • ${escapeHtml(p.date)} ${escapeHtml(p.time)}</div>
+                                    <div class="sub">×${fmtQty(p.qty)} @ $${Number(p.unitCost).toFixed(2)} • ${escapeHtml(p.date)} ${escapeHtml(p.time)}${escapeHtml(creditTag(p))}</div>
                                 </div>
                                 <div class="sup-right">
                                     <span class="amt">$${Number(p.total).toFixed(2)}</span>
@@ -1559,6 +1668,7 @@
             renderPurchases();
             renderExpenses();
             renderPL();
+            renderJournalCard();
             refreshStockNames();
             refreshSupplierNames();
             refreshFormExtras();
@@ -1714,6 +1824,15 @@
         pQtyEl.addEventListener('input', updatePurchaseTotalHint);
         pCostEl.addEventListener('input', updatePurchaseTotalHint);
 
+        // SNIPPET 4 event listeners
+        pQtyEl.addEventListener('input', refreshCreditFields);
+        pCostEl.addEventListener('input', refreshCreditFields);
+        pPaidEl.addEventListener('input', refreshCreditFields);
+        pTypeEl.addEventListener('change', refreshCreditFields);
+
+        // =====================================================================
+        //  SNIPPET 6: PURCHASE SUBMIT HANDLER (replaces previous)
+        // =====================================================================
         purchaseForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!subscriptionActive) {
@@ -1734,19 +1853,45 @@
             }
 
             const totalAmount = Math.round(qty * unitCost * 100) / 100;
-            const res = await saveCreditPurchase({
-                vendorName: opening ? 'Opening Stock' : supplier,
-                itemName: name,
-                quantity: qty,
-                totalAmount: totalAmount,
-                amountPaid: opening ? totalAmount : 0,
-                debtIncurredDate: todayISO(),
-                dueDate: opening ? null : todayISO()
-            });
-
-            if (!res) return;
-
+            const now = new Date();
+            const date = now.toLocaleDateString();
+            const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
+            const id = '_' + Math.random().toString(36).slice(2, 11);
             const key = normalize(name);
+
+            // Credit / payment check
+            let credit = null;
+            if (!opening) {
+                const raw = pPaidEl.value.trim();
+                const amountPaid = raw === '' ? totalAmount : parseFloat(raw);
+
+                if (!(amountPaid >= 0) || toCents(amountPaid) > toCents(totalAmount)) {
+                    await uiAlert('⚠️ Digniin!\n\nLacagta hadda la bixiyay waa inay u dhaxaysaa $0.00 iyo wadarta (' + money(toCents(totalAmount)) + ').\n\nIibsashada lama kaydin.');
+                    pPaidEl.focus();
+                    return;
+                }
+
+                const hasBalance = toCents(totalAmount) - toCents(amountPaid) > 0;
+                if (hasBalance && !pDueEl.value) {
+                    await uiAlert('⚠️ Digniin!\n\nDeyn ayaa hadhay (' + money(toCents(totalAmount) - toCents(amountPaid)) + '). Fadlan geli taariikhda lacag-bixinta (Due Date).\n\nIibsashada lama kaydin.');
+                    pDueEl.focus();
+                    return;
+                }
+
+                credit = await saveCreditPurchase({
+                    id,
+                    vendorName: supplier,
+                    itemName: name,
+                    quantity: qty,
+                    totalAmount,
+                    amountPaid,
+                    debtIncurredDate: todayISO(),
+                    dueDate: hasBalance ? pDueEl.value : null
+                });
+                if (!credit) return;
+            }
+
+            // Stock
             if (!stock[key]) {
                 stock[key] = { name, opening: 0, bought: 0, sold: 0, avgCost: 0 };
             }
@@ -1759,8 +1904,26 @@
             if (opening) it.opening = r3((it.opening || 0) + qty);
             else it.bought = r3((it.bought || 0) + qty);
 
+            // Purchase record: old shape + credit fields
+            const creditFields = credit ? {
+                paid: credit.purchase.paid,
+                balanceDue: credit.purchase.balanceDue,
+                status: credit.purchase.status,
+                debtIncurredDate: credit.purchase.debtIncurredDate,
+                dueDate: credit.purchase.dueDate,
+                journalTxnId: credit.purchase.id
+            } : {};
+
+            purchases.push({
+                id, item: it.name, key, qty, unitCost,
+                total: totalAmount,
+                supplier, opening, date, time,
+                ...creditFields
+            });
+
             purchaseForm.reset();
             pTotalHintEl.hidden = true;
+            refreshCreditFields();
             updateUI();
         });
 
@@ -1955,45 +2118,130 @@
         document.getElementById('clear-sales-btn').addEventListener('click', clearSales);
         document.getElementById('clear-debt-btn').addEventListener('click', clearDebt);
 
-        document.body.addEventListener('click', (e) => {
+        // =====================================================================
+        //  SNIPPET 7b: DELETE PURCHASE (with reversal hook)
+        // =====================================================================
+        async function deletePurchase(id) {
+            const p0 = purchases.find(p => p.id === id);
+            if (!p0) return;
+            const it0 = stock[p0.key];
+
+            let take0 = 0;
+            const field0 = p0.opening ? 'opening' : 'bought';
+            if (it0) {
+                take0 = Math.min(it0[field0] || 0, p0.qty);
+                if (r3(stockRemaining(it0) - take0) < 0) {
+                    await uiAlert('⚠️ Lama tirtiri karo!\n\nAlaabtan qayb ka mid ah waa la iibiyay, stock-gana ma filna si laga jaro ' + fmtQty(take0) + '.');
+                    return;
+                }
+            }
+
+            const ok = await uiConfirm(
+                '⚠️ ' + STOCK_DELETE_QUESTION +
+                '\n\n"' + p0.item + '" × ' + fmtQty(p0.qty) + ' — $' + Number(p0.total).toFixed(2) +
+                (it0 ? '\n\nStock-ga waxaa laga jarayaa: ' + fmtQty(take0) + '.' : ''),
+                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
+            );
+            if (!ok) return;
+
+            const idx = purchases.findIndex(p => p.id === id);
+            if (idx === -1) return;
+            const p = purchases[idx];
+            const it = stock[p.key];
+            const field = p.opening ? 'opening' : 'bought';
+            const take = it ? Math.min(it[field] || 0, p.qty) : 0;
+            if (it && r3(stockRemaining(it) - take) < 0) return;
+
+            if (it) it[field] = r3((it[field] || 0) - take);
+
+            // SNIPPET 7b: reversal hook
+            if (p.journalTxnId) applyCreditReversal(p);
+
+            purchases.splice(idx, 1);
+            updateUI();
+        }
+
+        // Delete: stock item
+        async function deleteStockItem(key) {
+            const it0 = stock[key];
+            if (!it0) return;
+            const ok = await uiConfirm(
+                '⚠️ Digniin!\n\nWaxaad ka saarayaa stock-ga:\n"' + it0.name + '" (hadhay: ' + fmtQty(stockRemaining(it0)) + ')' +
+                '\n\nDiiwaanka iibsashada waa hadhayaa, iibka iyo deymuhuna ma isbeddelayaan.' +
+                '\n\nMa hubtaa inaad tirtirto?',
+                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
+            );
+            if (!ok) return;
+            if (!stock[key]) return;
+            delete stock[key];
+            updateUI();
+        }
+
+        // Delete: expense
+        async function deleteExpense(id) {
+            const e0 = expenses.find(e => e.id === id);
+            if (!e0) return;
+            const ok = await uiConfirm(
+                '⚠️ Digniin!\n\nWaxaad tirtirayaa kharashka:\n' + (EXP_CATS[e0.category] || 'Kale') +
+                (e0.desc ? ' — ' + e0.desc : '') + ' — $' + Number(e0.amount).toFixed(2) +
+                '\n\nFaa\'iidada saafiga ah ayaa is beddelaysa.\n\nMa hubtaa?',
+                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
+            );
+            if (!ok) return;
+            const idx = expenses.findIndex(e => e.id === id);
+            if (idx === -1) return;
+            expenses.splice(idx, 1);
+            updateUI();
+        }
+
+        // =====================================================================
+        //  EVENT DELEGATION FOR LIST BUTTONS
+        // =====================================================================
+        salesListEl.addEventListener('click', (e) => {
             const btn = e.target.closest('button[data-action]');
             if (!btn) return;
-            const action = btn.dataset.action;
+            if (btn.dataset.action === 'delete-cash') deleteCashSale(btn.dataset.id);
+        });
 
-            if (action === 'delete-cash') {
-                deleteCashSale(btn.dataset.id);
-            } else if (action === 'delete-item') {
-                deleteCustomerItem(btn.dataset.key, btn.dataset.id);
-            } else if (action === 'settle') {
-                settleCustomer(btn.dataset.key);
-            } else if (action === 'delete-stock') {
-                const k = btn.dataset.key;
-                uiConfirm('Ma hubtaa inaad tirtirto alaabtan stock-ga ah?', { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }).then(ok => {
-                    if (ok) { delete stock[k]; updateUI(); }
-                });
-            } else if (action === 'delete-purchase') {
-                const id = btn.dataset.id;
-                uiConfirm('Ma hubtaa inaad tirtirto iibsashadan?', { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }).then(ok => {
-                    if (ok) {
-                        purchases = purchases.filter(p => p.id !== id);
-                        updateUI();
-                    }
-                });
-            } else if (action === 'delete-expense') {
-                const id = btn.dataset.id;
-                uiConfirm('Ma hubtaa inaad tirtirto kharashkan?', { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }).then(ok => {
-                    if (ok) {
-                        expenses = expenses.filter(ex => ex.id !== id);
-                        updateUI();
-                    }
-                });
-            } else if (action === 'toggle-supplier') {
-                const k = btn.dataset.key;
-                const cur = btn.dataset.open === '1';
-                supplierOpen[k] = !cur;
+        debtListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const { action, id, key } = btn.dataset;
+
+            if (action === 'delete-item') deleteCustomerItem(key, id);
+            else if (action === 'settle') settleCustomer(key);
+        });
+
+        purchasesListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const { action, id, key, open } = btn.dataset;
+
+            if (action === 'toggle-supplier') {
+                supplierOpen[key] = (open !== '1');
                 renderPurchases();
+            } else if (action === 'delete-purchase') {
+                deletePurchase(id);
             }
         });
+
+        inventoryListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            if (btn.dataset.action === 'delete-stock') deleteStockItem(btn.dataset.key);
+        });
+
+        expensesListEl.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            if (btn.dataset.action === 'delete-expense') deleteExpense(btn.dataset.id);
+        });
+
+        // =====================================================================
+        //  SNIPPET 10: STARTUP
+        // =====================================================================
+        pDueEl.min = todayISO();
+        refreshCreditFields();
 
         renderSubscriptionUI();
         applyReadOnlyMode();
