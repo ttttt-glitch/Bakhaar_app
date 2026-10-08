@@ -389,12 +389,6 @@
     <script>
         // =====================================================================
         //  CUSTOM MODALS (Promise + async/await)
-        //  uiAlert(text)            -> resolves when the user taps OK
-        //  uiConfirm(text, opts)    -> resolves true (OK) or false (Cancel / Esc / tap outside)
-        //  uiPrompt(title, opts)    -> resolves the typed text, or null if cancelled
-        //  The calling code pauses at "await" until the user answers.
-        //  For alert/confirm text: the first paragraph (before a blank line) becomes the
-        //  bold title and the rest becomes the message.
         // =====================================================================
         const modalOverlay = document.getElementById('modal-overlay');
         const modalTitleEl = document.getElementById('modal-title');
@@ -404,7 +398,6 @@
         const modalOkBtn = document.getElementById('modal-ok');
         const modalCancelBtn = document.getElementById('modal-cancel');
 
-        // Modals are shown one at a time: a new one waits for the previous to be answered
         let modalQueue = Promise.resolve();
 
         function showModal(opts) {
@@ -430,7 +423,7 @@
                 modalMsgEl.hidden = !body;
 
                 modalInputEl.hidden = (o.kind !== 'prompt');
-                modalInputEl.value = '';                       // never pre-filled
+                modalInputEl.value = '';
                 modalInputEl.type = o.inputType;
                 modalInputEl.setAttribute('inputmode', o.inputMode);
                 modalErrorEl.hidden = true;
@@ -492,7 +485,6 @@
                 modalOverlay.hidden = false;
                 document.body.style.overflow = 'hidden';
 
-                // Safe default focus: Cancel for confirms, the input for prompts
                 if (o.kind === 'prompt') modalInputEl.focus();
                 else if (o.kind === 'confirm') modalCancelBtn.focus();
                 else modalOkBtn.focus();
@@ -510,24 +502,15 @@
         document.getElementById('current-date').innerText = new Date().toLocaleDateString();
 
         // =====================================================================
-        //  OWNER SETTINGS  (edit these before uploading)
+        //  OWNER SETTINGS
         // =====================================================================
-
-        // VIP devices: these numbers are never locked out.
         const vipDevices = ["0907123456"];
-
-        // For testing only: default expiry used when none is saved yet (format "YYYY-MM-DD").
-        // Leave as null to default to the last day of the current month.
         const DEFAULT_EXPIRY_OVERRIDE = "2026-01-01";
-
-        // Secret phrase used to build the monthly access codes.
-        // CHANGE THIS to your own phrase. It must be IDENTICAL in kood-generator.html.
         const CODE_SECRET = 'Bakhaar-7Qx92-secret';
 
         // =====================================================================
-        //  SUBSCRIPTION / LICENSE SYSTEM (offline, no backend)
+        //  SUBSCRIPTION / LICENSE SYSTEM
         // =====================================================================
-
         const SUB_DAYS = 30;
         const LS_EXPIRY = 'ganacsi_sub_expiry';
         const LS_PHONE = 'ganacsi_phone';
@@ -536,12 +519,10 @@
 
         function pad2(n) { return String(n).padStart(2, '0'); }
 
-        // Local date as YYYY-MM-DD
         function toISODate(d) {
             return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
         }
 
-        // "YYYY-MM-DD" -> Date at the very end of that day (local time)
         function endOfDay(iso) {
             const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
             if (!m) return null;
@@ -551,8 +532,6 @@
 
         function digitsOnly(s) { return String(s || '').replace(/\D/g, ''); }
 
-        // Current time, protected against setting the phone clock backwards.
-        // The latest date the app has ever seen is remembered.
         function getTrustedNow() {
             const real = new Date();
             let now = real;
@@ -565,7 +544,6 @@
             return now;
         }
 
-        // Reads the saved expiry. If none, saves a default and returns it.
         function getExpiryDate(now) {
             let iso = localStorage.getItem(LS_EXPIRY);
             let d = iso ? endOfDay(iso) : null;
@@ -573,7 +551,6 @@
                 if (DEFAULT_EXPIRY_OVERRIDE && endOfDay(DEFAULT_EXPIRY_OVERRIDE)) {
                     iso = DEFAULT_EXPIRY_OVERRIDE;
                 } else {
-                    // Last day of the current month
                     iso = toISODate(new Date(now.getFullYear(), now.getMonth() + 1, 0));
                 }
                 localStorage.setItem(LS_EXPIRY, iso);
@@ -593,13 +570,9 @@
         const isVip = isVipUser();
         const subscriptionActive = (nowDate <= expiryDate || isVip);
 
-        // ---------- Rolling monthly code ----------
-        // The code for a month = hash(CODE_SECRET | year | month), turned into 6 characters.
-        // A new month gives a new code automatically. Nothing needs editing each month.
-        const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';   // no 0/O, 1/I/L
+        const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
         const CODE_LENGTH = 6;
 
-        // Small, fast 53-bit string hash (same function is used in kood-generator.html)
         function cyrb53(str) {
             let h1 = 0xdeadbeef, h2 = 0x41c6ce57;
             for (let i = 0; i < str.length; i++) {
@@ -612,7 +585,6 @@
             return 4294967296 * (2097151 & h2) + (h1 >>> 0);
         }
 
-        // monthIndex: 0 = January ... 11 = December
         function monthlyCode(year, monthIndex) {
             let h = cyrb53(CODE_SECRET + '|' + year + '|' + (monthIndex + 1));
             let out = '';
@@ -627,8 +599,6 @@
             return String(raw).toUpperCase().replace(/[^A-Z0-9]/g, '');
         }
 
-        // Checks the typed code against this month's code and next month's code
-        // (next month allows early renewal). Returns { tag: "YYYY-MM" } or null.
         function matchMonthlyCode(raw) {
             const entered = normalizeCode(raw);
             if (entered.length !== CODE_LENGTH) return null;
@@ -646,14 +616,12 @@
             if (el) el.textContent = text;
         }
 
-        // Validates the typed monthly code (or a VIP number) and activates.
         async function verifyAndActivateKey() {
             const input = document.getElementById('license-input');
             if (!input) return;
             const raw = input.value.trim();
             if (!raw) { setLicenseMsg('Fadlan geli koodhka.'); return; }
 
-            // A VIP phone number typed here unlocks the device permanently
             const digits = digitsOnly(raw);
             if (digits.length >= 7 && /^[\d\s+\-]+$/.test(raw)) {
                 if (vipDevices.some(v => digitsOnly(v) === digits)) {
@@ -672,7 +640,6 @@
                 return;
             }
 
-            // Each month's code can be used only once on this device
             let used = [];
             try { used = JSON.parse(localStorage.getItem(LS_USED_KEYS)) || []; } catch (e) { used = []; }
             if (used.includes(match.tag)) {
@@ -680,7 +647,6 @@
                 return;
             }
 
-            // Extend 30 days from today, or from the current expiry if it is still in the future
             const base = expiryDate > nowDate ? new Date(expiryDate.getTime()) : new Date(nowDate.getTime());
             base.setHours(12, 0, 0, 0);
             base.setDate(base.getDate() + SUB_DAYS);
@@ -694,8 +660,6 @@
             location.reload();
         }
 
-        // Saves this device's phone number (used for the VIP whitelist).
-        // The box is empty: no example number and no saved number is shown.
         async function askPhoneNumber() {
             const val = await uiPrompt('Geli lambarka telefonkaga', {
                 inputType: 'tel',
@@ -703,7 +667,7 @@
                 okText: 'Kaydi',
                 cancelText: 'Jooji'
             });
-            if (val === null) return;   // cancelled: nothing changes
+            if (val === null) return;
             const digits = digitsOnly(val);
             if (!digits) {
                 localStorage.removeItem(LS_PHONE);
@@ -713,8 +677,6 @@
             location.reload();
         }
 
-        // Read-only mode: disables ALL record forms (sales/debt, purchases, expenses).
-        // Viewing, searching, deleting and settling keep working.
         function applyReadOnlyMode() {
             if (subscriptionActive) return;
             document.querySelectorAll('.lock-form input, .lock-form select').forEach(el => { el.disabled = true; });
@@ -724,7 +686,6 @@
             });
         }
 
-        // Draws the status strip and (when expired) the warning banner
         function renderSubscriptionUI() {
             const statusEl = document.getElementById('sub-status');
             const bannerEl = document.getElementById('sub-banner');
@@ -763,7 +724,6 @@
                 return;
             }
 
-            // No placeholder and no example: the code is never shown on screen
             bannerEl.innerHTML = `
                 <div class="expired-banner">
                     <p class="t">⛔ Isdiiwaangelintii waa dhammaatay</p>
@@ -782,19 +742,12 @@
         }
 
         // =====================================================================
-        //  APP
+        //  APP LOGIC & CREDIT PURCHASE FUNCTIONS
         // =====================================================================
 
-        // Question shown before deleting anything linked to inventory
         const STOCK_DELETE_QUESTION = 'Ma hubtaa inaad tirtiraysid iibkan stock-ga la xiriira?';
-
-        // COGS timing for credit (debt) sales:
-        //   true  = the cost of goods is counted as soon as the goods leave the shop (recommended)
-        //   false = the cost is counted in proportion to what the customer has paid
-        // Cash sales always count their cost immediately.
         const COGS_ON_CREDIT_AT_SALE = true;
 
-        // ---------- Safe helpers ----------
         function escapeHtml(str) {
             return String(str)
                 .replace(/&/g, '&amp;')
@@ -813,46 +766,128 @@
             }
         }
 
-        // Normalizes text for matching: trims, lowercases, collapses spaces
         function normalize(str) {
             return String(str).trim().toLowerCase().replace(/\s+/g, ' ');
         }
 
-        // Work in whole cents to avoid floating point errors
-        function toCents(n) {
-            return Math.round((Number(n) || 0) * 100);
-        }
+        const toCents = n => Math.round((Number(n) || 0) * 100);
 
         function money(cents) {
             return '$' + (cents / 100).toFixed(2);
         }
 
-        // Money that may be negative (profit / loss)
         function moneySigned(cents) {
             return (cents < 0 ? '-' : '') + '$' + (Math.abs(cents) / 100).toFixed(2);
         }
 
-        // Quantities: keep 3 decimals to avoid floating point noise
         function r3(n) { return Math.round((Number(n) || 0) * 1000) / 1000; }
         function fmtQty(n) { return String(r3(n)); }
 
+        // ---------- Credit purchase logic snippets integration ----------
+        const fromCents = c => c / 100;
+        const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
+
+        function todayISO() {
+            const d = new Date();
+            return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
+        }
+
+        function deepFreeze(obj) {
+            Object.values(obj).forEach(v => {
+                if (v && typeof v === 'object' && !Object.isFrozen(v)) deepFreeze(v);
+            });
+            return Object.freeze(obj);
+        }
+
+        function buildJournal(txnId, date, memo, totalC, paidC, balanceC) {
+            const line = (account, debitC, creditC) =>
+                ({ txnId, date, account, debit: fromCents(debitC), credit: fromCents(creditC), memo });
+
+            const lines = [line('Inventory Asset', totalC, 0)];
+            if (paidC > 0) lines.push(line('Cash', 0, paidC));
+            if (balanceC > 0) lines.push(line('Accounts Payable', 0, balanceC));
+
+            const debits = lines.reduce((s, l) => s + toCents(l.debit), 0);
+            const credits = lines.reduce((s, l) => s + toCents(l.credit), 0);
+            if (debits !== credits) throw new Error('Journal out of balance');
+            return lines;
+        }
+
+        function processCreditPurchase(data, vendors = {}) {
+            const errors = [];
+            const vendorName = String(data.vendorName || '').trim().replace(/\s+/g, ' ');
+            const totalC = toCents(data.totalAmount);
+            const paidC = toCents(data.amountPaid || 0);
+            const incurred = data.debtIncurredDate || todayISO();
+            const dueDate = data.dueDate || null;
+
+            if (!vendorName) errors.push('Magaca alaab-qeybiyaha waa loo baahan yahay.');
+            if (!(totalC > 0)) errors.push('Wadarta iibsashada waa inay ka weyn tahay 0.');
+            if (paidC < 0 || paidC > totalC) errors.push('Lacagta hore la bixiyay waa inay u dhaxaysaa 0 iyo wadarta.');
+            if (!ISO_DATE.test(incurred)) errors.push('Taariikhda deynta waa khalad (YYYY-MM-DD).');
+
+            const balanceC = totalC - paidC;
+            if (balanceC > 0) {
+                if (!dueDate || !ISO_DATE.test(dueDate)) errors.push('Taariikhda lacag-bixinta (dueDate) waa loo baahan yahay.');
+                else if (dueDate < incurred) errors.push('dueDate ma noqon karto ka hor taariikhda deynta.');
+            }
+            if (errors.length) return { ok: false, errors };
+
+            const txnId = data.id || ('_' + Math.random().toString(36).slice(2, 11));
+            const key = vendorName.toLowerCase();
+            const prev = vendors[key] || { name: vendorName, balanceCents: 0 };
+
+            const vendor = {
+                ...prev,
+                balanceCents: prev.balanceCents + balanceC,
+                lastPurchaseDate: incurred
+            };
+
+            const purchase = {
+                id: txnId,
+                vendor: vendor.name,
+                item: data.itemName || '',
+                qty: Number(data.quantity) || 0,
+                total: fromCents(totalC),
+                paid: fromCents(paidC),
+                balanceDue: fromCents(balanceC),
+                status: balanceC === 0 ? 'paid' : (paidC > 0 ? 'partial' : 'unpaid'),
+                debtIncurredDate: balanceC > 0 ? incurred : null,
+                dueDate: balanceC > 0 ? dueDate : null,
+                purchaseDate: incurred
+            };
+
+            const memo = 'Iibsasho: ' + (data.itemName || 'alaab') + ' — ' + vendor.name;
+            const journal = buildJournal(txnId, incurred, memo, totalC, paidC, balanceC);
+
+            return deepFreeze({
+                ok: true,
+                purchase,
+                vendor,
+                vendors: { ...vendors, [key]: vendor },
+                journal
+            });
+        }
+
+        let vendorLedger = loadJSON('ganacsi_vendor_ledger', {});
+        let journalLog = loadJSON('ganacsi_journal', []);
+
+        async function saveCreditPurchase(data) {
+            const result = processCreditPurchase(data, vendorLedger);
+            if (!result.ok) {
+                await uiAlert('⚠️ Digniin!\n\n' + result.errors.join('\n'));
+                return null;
+            }
+            vendorLedger = result.vendors;
+            journalLog = [...journalLog, ...result.journal];
+            purchases = [...purchases, result.purchase];
+            localStorage.setItem('ganacsi_vendor_ledger', JSON.stringify(vendorLedger));
+            localStorage.setItem('ganacsi_journal', JSON.stringify(journalLog));
+            saveData();
+            return result;
+        }
+
         // ---------- State ----------
-        // cashSales:    [{ id, customer, description, amount, date, time, stockKey, qty, unit, unitCost, cogs }]
-        //               amount = final total saved (qty x unit price when stock-linked)
-        //               unitCost = the item's unit cost taken from inventory at the time of sale
-        //               cogs = qty x unitCost, in cents
-        // customers:    { "khadar": { name, items: [ { id, desc, amount, paid, date, time, paidDate, paidTime, stockKey, qty, unit, unitCost, cogs } ] } }
-        //               Each debt item carries its own paid amount. A fully paid item
-        //               is drawn as a "Bixin" card. There is no separate payments list.
-        // totalRevenue: persistent number = cash sales + collected debt payments
-        // stock:        { "sarreen": { name, opening, bought, sold, avgCost } }
-        //               Remaining = opening + bought - sold
-        // purchases:    [{ id, item, key, qty, unitCost, total, supplier, opening, date, time }]
-        //               The Iibsasho tab groups these by supplier name for display only.
-        // expenses:     [{ id, category, desc, amount, date, time }]
-        // cogsAdjCents: small persistent adjustment (cents) that keeps COGS correct after records
-        //               are cleared or removed without returning goods to stock.
-        //               COGS itself is NOT stored: it is recalculated live from the records.
         let cashSales = loadJSON('ganacsi_cash', []);
         let customers = loadJSON('ganacsi_customers', {});
         let totalRevenue = parseFloat(localStorage.getItem('ganacsi_revenue')) || 0;
@@ -873,12 +908,10 @@
         const datalistEl = document.getElementById('unpaid-items');
         const paymentHintEl = document.getElementById('payment-hint');
 
-        // Sales section (cash sales only)
         const salesListEl = document.getElementById('sales-list');
         const salesSearchEl = document.getElementById('sales-search');
         const salesCountEl = document.getElementById('sales-count');
 
-        // Debts section (customer debt cards only)
         const debtListEl = document.getElementById('debt-list');
         const debtSearchEl = document.getElementById('debt-search');
         const debtCountEl = document.getElementById('debt-count');
@@ -931,7 +964,6 @@
             localStorage.setItem('ganacsi_cogs_adj', String(cogsAdjCents));
         }
 
-        // ---------- Stock helpers ----------
         function stockRemaining(it) {
             return r3((it.opening || 0) + (it.bought || 0) - (it.sold || 0));
         }
@@ -940,18 +972,12 @@
             return Math.round(Math.max(stockRemaining(it), 0) * (it.avgCost || 0) * 100);
         }
 
-        // Small label for a record: " • 📦 ×10 @ $50.00"
         function qtyLabel(rec) {
             if (!rec.stockKey || !rec.qty) return '';
             const unitTxt = rec.unit ? ' @ $' + Number(rec.unit).toFixed(2) : '';
             return ' • 📦 ×' + fmtQty(rec.qty) + unitTxt;
         }
 
-        // ---------- COGS (Cost of Goods Sold): calculated live from the records ----------
-
-        // Full cost of one stock-linked record = its quantity x that item's unit cost (in cents).
-        // The unit cost was read from the inventory record when the sale was saved.
-        // Older records without a saved cost fall back to the item's current inventory cost.
         function itemCostCents(rec) {
             if (!rec || !rec.stockKey || !(rec.qty > 0)) return 0;
             if (typeof rec.cogs === 'number') return rec.cogs;
@@ -959,7 +985,6 @@
             return it ? Math.round(rec.qty * (it.avgCost || 0) * 100) : 0;
         }
 
-        // Cost counted for a debt item right now
         function debtCostCents(item) {
             const full = itemCostCents(item);
             if (COGS_ON_CREDIT_AT_SALE) return full;
@@ -967,7 +992,6 @@
             return amtC > 0 ? Math.round(full * toCents(item.paid) / amtC) : 0;
         }
 
-        // Sum of costs over every cash sale and every debt item (before the adjustment)
         function recordsCogsCents() {
             let total = 0;
             cashSales.forEach(tx => { total += itemCostCents(tx); });
@@ -977,12 +1001,10 @@
             return total;
         }
 
-        // The COGS shown on the Xisaab tab
         function computeCogsCents() {
             return Math.max(recordsCogsCents() + cogsAdjCents, 0);
         }
 
-        // Per-item breakdown: [{ name, qty, cents }], e.g. Sokor 10 x $45.00 = $450.00
         function cogsBreakdown() {
             const map = {};
             const add = (rec, cents) => {
@@ -1001,24 +1023,20 @@
             return Object.values(map).sort((a, b) => a.name.localeCompare(b.name));
         }
 
-        // ---------- Debt item helpers ----------
         function remainingCents(item) {
             return Math.max(toCents(item.amount) - toCents(item.paid), 0);
         }
 
-        // Customer balance = sum of what is still unpaid on each item
         function getBalanceCents(cust) {
             return cust.items.reduce((sum, i) => sum + remainingCents(i), 0);
         }
 
-        // Total outstanding debt across all customers, in cents
         function getTotalDebtCents() {
             let total = 0;
             Object.values(customers).forEach(cust => { total += getBalanceCents(cust); });
             return total;
         }
 
-        // Unpaid items grouped by description: [{ key, desc, cents }]
         function getUnpaidGroups(cust) {
             const groups = {};
             cust.items.forEach(item => {
@@ -1031,10 +1049,6 @@
             return Object.values(groups);
         }
 
-        // Applies a payment to a customer's items, oldest first.
-        // descKey = normalized description to match, or null to match any unpaid item.
-        // COGS is recalculated live from the records, so nothing else needs updating here.
-        // Returns the cents that could not be applied.
         function applyToItems(cust, descKey, cents, date, time) {
             for (const item of cust.items) {
                 if (cents <= 0) break;
@@ -1050,31 +1064,6 @@
             return cents;
         }
 
-        // ---------- One-time migration from the old structure ----------
-        // Old data kept a separate payments list. Convert each old payment into
-        // paid amounts on the matching debt items. Revenue is never touched.
-        function migrateCustomers() {
-            let changed = false;
-            Object.values(customers).forEach(cust => {
-                if (!Array.isArray(cust.items)) cust.items = [];
-                cust.items.forEach(i => {
-                    if (typeof i.paid !== 'number') i.paid = 0;
-                });
-
-                if (Array.isArray(cust.payments)) {
-                    cust.payments.forEach(p => {
-                        let left = toCents(p.amount);
-                        left = applyToItems(cust, normalize(p.desc), left, p.date, p.time);
-                        if (left > 0) applyToItems(cust, null, left, p.date, p.time);
-                    });
-                    delete cust.payments;
-                    changed = true;
-                }
-            });
-            if (changed) saveData();
-        }
-
-        // ---------- Sales form: payment suggestions + stock link ----------
         function refreshSuggestions() {
             datalistEl.innerHTML = '';
             const isPayment = typeEl.value === 'payment';
@@ -1092,7 +1081,6 @@
             });
         }
 
-        // Rebuilds the stock dropdown, keeping the current choice if still valid
         function refreshItemSelect() {
             const cur = stockSelectEl.value;
             stockSelectEl.innerHTML = '';
@@ -1119,8 +1107,6 @@
             if (!show) stockSelectEl.value = '';
         }
 
-        // Unit price mode: when a stock item is chosen, the money field is the price per unit
-        // and a live total (quantity x unit price) is shown underneath.
         function refreshAmountUI() {
             const it = stock[stockSelectEl.value];
             const linked = !!it && !stockFieldsEl.hidden && typeEl.value !== 'payment';
@@ -1175,7 +1161,6 @@
             });
         }
 
-        // Suggests supplier names already used, so one supplier never splits into two rows
         function refreshSupplierNames() {
             supplierNamesEl.innerHTML = '';
             const seen = {};
@@ -1189,13 +1174,11 @@
             });
         }
 
-        // ---------- Rendering ----------
         function renderSummary() {
             totalSalesEl.innerText = `$${totalRevenue.toFixed(2)}`;
             totalDebtEl.innerText = money(getTotalDebtCents());
         }
 
-        // IIBKA: completed cash sales only
         function renderSalesList() {
             salesListEl.innerHTML = '';
             const term = normalize(salesSearchEl.value);
@@ -1235,7 +1218,6 @@
             }
         }
 
-        // DEYNTA: customer debt cards only (paid items show as Bixin inside the same card)
         function renderDebtList() {
             debtListEl.innerHTML = '';
             const term = normalize(debtSearchEl.value);
@@ -1261,7 +1243,6 @@
                     const delBtn = `<button type="button" class="del-btn" data-action="delete-item" data-key="${safeKey}" data-id="${escapeHtml(item.id)}">✕ Tirtir</button>`;
 
                     if (rem === 0) {
-                        // Fully paid: the debt card itself becomes the Bixin card
                         rowsHtml += `
                             <div class="payment-row">
                                 <span>✅ Bixin: ${escapeHtml(item.desc)} — <b>$${item.amount.toFixed(2)}</b> <span style="font-size:9px; color:#64748b;">(${escapeHtml(item.paidDate || item.date)} • ${escapeHtml(item.paidTime || item.time)}${qtyTxt})</span></span>
@@ -1269,7 +1250,6 @@
                             </div>
                         `;
                     } else {
-                        // Unpaid or partly paid: still a debt card
                         const partial = paidC > 0
                             ? `<span class="partial-note">La bixiyay ${money(paidC)} • Hadhay ${money(rem)}</span>`
                             : '';
@@ -1282,7 +1262,6 @@
                     }
                 });
 
-                // Settle button: shows whenever balance is $0.00 and the card has records
                 let settleHtml = '';
                 if (balanceCents === 0 && cust.items.length > 0) {
                     settleHtml = `<button type="button" class="settle-btn" data-action="settle" data-key="${safeKey}">Sifee Deynta ✓</button>`;
@@ -1314,7 +1293,6 @@
             }
         }
 
-        // Inventory ledger: Opening + Purchases - Sales = Remaining
         function renderInventory() {
             const keys = Object.keys(stock).sort();
             let valueC = 0;
@@ -1346,9 +1324,6 @@
             stockSummaryEl.textContent = 'Alaabta: ' + keys.length + ' • Qiimaha guud ee stock-ga: ' + money(valueC);
         }
 
-        // ---------- Supplier ledger: purchases grouped by supplier ----------
-        // supplierOpen[key] = true/false once the user taps a row. Undefined = default
-        // (closed, except when a search leaves exactly one supplier, which opens itself).
         const OPENING_GROUP_KEY = '__opening__';
         const OPENING_GROUP_NAME = 'Stock bilow (supplier la\'aan)';
         let supplierOpen = {};
@@ -1362,7 +1337,6 @@
             purchasesListEl.innerHTML = '';
             const q = normalize(purchaseSearchEl.value);
 
-            // 1. Group every purchase by supplier (newest purchase = highest index)
             const groups = {};
             purchases.forEach((p, idx) => {
                 const gk = supplierKeyOf(p);
@@ -1378,8 +1352,6 @@
                 groups[gk].lastIdx = idx;
             });
 
-            // 2. Apply the search: supplier name match keeps all its purchases,
-            //    otherwise only purchases whose item name matches are kept
             const rows = [];
             Object.values(groups).forEach(g => {
                 const nameMatch = !!q && normalize(g.name).includes(q);
@@ -1405,13 +1377,11 @@
                 });
             });
 
-            // 3. Sort: name matches first, then the most recently used supplier
             rows.sort((a, b) => {
                 if (a.nameMatch !== b.nameMatch) return a.nameMatch ? -1 : 1;
                 return b.lastIdx - a.lastIdx;
             });
 
-            // 4. Summary line (all-time money spent, opening stock left out)
             let allSpentC = 0;
             purchases.forEach(p => { if (!p.opening) allSpentC += toCents(p.total); });
             const supplierCount = Object.keys(groups).length;
@@ -1419,7 +1389,6 @@
                 ? 'Natiijo: ' + rows.length + ' alaab-qeybiye • Wadarta iibsashada (aan ku jirin stock bilow): ' + money(allSpentC)
                 : 'Alaab-qeybiyayaal: ' + supplierCount + ' • Wadarta iibsashada (aan ku jirin stock bilow): ' + money(allSpentC);
 
-            // 5. Empty states
             if (purchases.length === 0) {
                 purchasesListEl.innerHTML = `<p class="text-center">Wali iibsasho lama gelin.</p>`;
                 return;
@@ -1429,7 +1398,6 @@
                 return;
             }
 
-            // 6. Draw supplier rows (tap to open the detail list)
             const autoOpen = !!q && rows.length === 1;
             rows.forEach(r => {
                 const open = (supplierOpen[r.key] === undefined) ? autoOpen : supplierOpen[r.key];
@@ -1438,7 +1406,7 @@
 
                 let bodyHtml = '';
                 if (open) {
-                    const detail = r.shown.slice().reverse();   // newest first
+                    const detail = r.shown.slice().reverse();
                     bodyHtml = '<div class="sup-body">';
                     detail.forEach(p => {
                         bodyHtml += `
@@ -1499,8 +1467,6 @@
             }
         }
 
-        // Net Profit = Total Revenue - (COGS + Operating Expenses + Payroll)
-        // COGS = sum over all items of (quantity sold x that item's unit cost)
         function renderPL() {
             const revC = toCents(totalRevenue);
             const cogsC = computeCogsCents();
@@ -1517,7 +1483,6 @@
             let spentC = 0;
             purchases.forEach(p => { if (!p.opening) spentC += toCents(p.total); });
 
-            // Per-item COGS breakdown lines
             let breakdownHtml = '';
             cogsBreakdown().forEach(row => {
                 const unitC = row.qty > 0 ? row.cents / row.qty : 0;
@@ -1586,13 +1551,9 @@
             b.addEventListener('click', () => showTab(b.dataset.tab));
         });
 
-        // ---------- Add records: sales / debts / payments ----------
-        let lastAutoDesc = '';
-
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
 
-            // Safety guard: no new records when the subscription has expired
             if (!subscriptionActive) {
                 await uiAlert('⛔ Isdiiwaangelintii waa dhammaatay.\n\nDhaqaaji koodhka bisha si aad wax cusub u kaydiso.');
                 return;
@@ -1605,11 +1566,8 @@
 
             if (!customerName || !description || !(enteredAmount > 0)) return;
 
-            // amount = the final total that is saved.
-            // For stock-linked sales it is quantity x unit price.
             let amount = enteredAmount;
 
-            // ---- Stock link (sale / debt only) ----
             let stockKey = '', qty = 0, cogs = 0, unit = 0, unitCost = 0, stockItem = null;
             if (type !== 'payment' && stockSelectEl.value) {
                 stockKey = stockSelectEl.value;
@@ -1630,7 +1588,6 @@
                     return;
                 }
 
-                // The money field is the price per unit: total = quantity x unit price
                 unit = enteredAmount;
                 amount = Math.round(qty * unit * 100) / 100;
                 if (!(amount > 0)) {
@@ -1638,7 +1595,6 @@
                     return;
                 }
 
-                // Item-specific cost: read this item's unit cost from its inventory record
                 unitCost = stockItem.avgCost || 0;
                 cogs = Math.round(qty * unitCost * 100);
             }
@@ -1662,20 +1618,17 @@
                 }
                 customers[key].items.push({ id, desc: description, amount, paid: 0, date, time, stockKey, qty, unit, unitCost, cogs });
                 if (stockItem) {
-                    stockItem.sold = r3((stockItem.sold || 0) + qty);   // goods leave the shop now
+                    stockItem.sold = r3((stockItem.sold || 0) + qty);
                 }
 
             } else if (type === 'payment') {
-                // ---- STRICT PAYMENT VALIDATION ----
                 const cust = customers[key];
 
-                // 1. Customer must exist (no empty card is created on failure)
                 if (!cust) {
                     await uiAlert('⚠️ Digniin!\n\nMacmiilkan "' + customerName + '" deyn ma laha.\nBixinta lama kaydin.');
                     return;
                 }
 
-                // 2. Description must match one of this customer's UNPAID debt items
                 const groups = getUnpaidGroups(cust);
                 const match = groups.find(g => g.key === normalize(description));
 
@@ -1687,16 +1640,13 @@
                     return;
                 }
 
-                // 3. Payment cannot be more than what is still owed on that item
                 if (toCents(amount) > match.cents) {
                     await uiAlert('⚠️ Digniin!\n\nLacagta aad gelisay ($' + amount.toFixed(2) + ') way ka badan tahay deynta hadhay (' + money(match.cents) + ') ee "' + match.desc + '".\nBixinta lama kaydin.');
                     return;
                 }
-                // ---- END VALIDATION ----
 
-                // The matching debt card itself becomes paid (no separate payment card)
                 applyToItems(cust, match.key, toCents(amount), date, time);
-                totalRevenue += amount; // collected debt counts as revenue
+                totalRevenue += amount;
             }
 
             form.reset();
@@ -1720,7 +1670,6 @@
             refreshStockHint();
         });
 
-        // ---------- Add records: purchases (stock-in) ----------
         function updatePurchaseTotalHint() {
             const q = parseFloat(pQtyEl.value);
             const c = parseFloat(pCostEl.value);
@@ -1756,35 +1705,39 @@
             const now = new Date();
             const date = now.toLocaleDateString();
             const time = now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' });
-            const id = '_' + Math.random().toString(36).slice(2, 11);
             const key = normalize(name);
+
+            // Use the processCreditPurchase workflow to track vendor details & double-entry journal safely
+            const totalAmount = Math.round(qty * unitCost * 100) / 100;
+            const res = await saveCreditPurchase({
+                vendorName: opening ? 'Opening Stock' : supplier,
+                itemName: name,
+                quantity: qty,
+                totalAmount: totalAmount,
+                amountPaid: opening ? totalAmount : 0, // Opening is fully settled as stock on hand
+                debtIncurredDate: todayISO(),
+                dueDate: opening ? null : todayISO()
+            });
+
+            if (!res) return; // Errors caught inside saveCreditPurchase
 
             if (!stock[key]) {
                 stock[key] = { name, opening: 0, bought: 0, sold: 0, avgCost: 0 };
             }
             const it = stock[key];
 
-            // Weighted average cost
             const before = Math.max(stockRemaining(it), 0);
             const newAvg = before > 0 ? (before * (it.avgCost || 0) + qty * unitCost) / (before + qty) : unitCost;
             it.avgCost = Math.round(newAvg * 10000) / 10000;
 
-            // Saving a purchase increases stock automatically
             if (opening) it.opening = r3((it.opening || 0) + qty);
             else it.bought = r3((it.bought || 0) + qty);
-
-            purchases.push({
-                id, item: it.name, key, qty, unitCost,
-                total: Math.round(qty * unitCost * 100) / 100,
-                supplier, opening, date, time
-            });
 
             purchaseForm.reset();
             pTotalHintEl.hidden = true;
             updateUI();
         });
 
-        // ---------- Add records: expenses & payroll ----------
         expenseForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!subscriptionActive) {
@@ -1808,16 +1761,6 @@
             updateUI();
         });
 
-        // ---------- Actions ----------
-        // Every delete first awaits the custom confirm pop-up. Cancel aborts safely.
-        // After OK the record is looked up again (by id), so a stale click can never
-        // delete the wrong thing.
-
-        // Deleting a cash sale.
-        //  - Stock-linked: asks the stock question. Only after OK, the quantity goes
-        //    back to stock. Its cost leaves COGS automatically (the record is gone).
-        //  - Not stock-linked: also asks first (plain warning).
-        // In both cases the sale's amount leaves total revenue (it was a mistaken entry).
         async function deleteCashSale(id) {
             const first = cashSales.find(tx => tx.id === id);
             if (!first) return;
@@ -1838,8 +1781,7 @@
             } else {
                 msg =
                     '⚠️ Digniin!' +
-                    '\n\nWaxaad tirtirayaa iibkan:\n"' + first.description + '" — $' + first.amount.toFixed(2) +
-                    '\n\nIibka guud waxaa laga jarayaa: $' + first.amount.toFixed(2) + '.\n\nMa hubtaa?';
+                    '\n\nWaxaad tirtirayaa iibkan:\n"' + first.description + '" — $' + first.amount.toFixed(2) +                     '\n\nIibka guud waxaa laga jarayaa:$' + first.amount.toFixed(2) + '.\n\nMa hubtaa?';
             }
 
             const ok = await uiConfirm(msg, { danger: true, okText: 'Tirtir', cancelText: 'Jooji' });
@@ -1852,7 +1794,6 @@
             cashSales.splice(index, 1);
             totalRevenue = Math.max(totalRevenue - tx.amount, 0);
 
-            // Goods go back to stock (only after confirmation above)
             const it = (tx.stockKey && tx.qty > 0) ? stock[tx.stockKey] : null;
             if (it) {
                 it.sold = Math.max(r3((it.sold || 0) - (tx.qty || 0)), 0);
@@ -1860,14 +1801,6 @@
             updateUI();
         }
 
-        // Deleting a debt/Bixin card:
-        //  - Not stock-linked: the usual warnings (unpaid = warns, paid = no change).
-        //  - Stock-linked: asks the stock question first. After OK, the goods for the
-        //    still-unpaid share go back to stock. A fully paid card returns nothing,
-        //    because those goods were sold and the money is already in revenue.
-        //  - Revenue is never changed here.
-        //  - COGS: cost of goods that go back to stock leaves COGS; cost of goods that
-        //    were really sold stays counted (kept through the small adjustment).
         async function deleteCustomerItem(key, id) {
             const cust0 = customers[key];
             if (!cust0) return;
@@ -1883,7 +1816,6 @@
             let msg;
 
             if (isLinked) {
-                // Goods for the unpaid share return to stock
                 returnQty = (stockIt0 && amtC > 0) ? r3(item0.qty * rem / amtC) : 0;
 
                 msg =
@@ -1916,7 +1848,6 @@
             const ok = await uiConfirm(msg, { danger: true, okText: 'Tirtir', cancelText: 'Jooji' });
             if (!ok) return;
 
-            // Look the record up again after the answer
             const cust = customers[key];
             if (!cust) return;
             const idx = cust.items.findIndex(i => i.id === id);
@@ -1924,7 +1855,6 @@
             const item = cust.items[idx];
             const stockIt = isLinked ? stock[item.stockKey] : null;
 
-            // Confirmed: COGS bookkeeping first (uses the item before it is removed)
             const contribution = debtCostCents(item);
             let countedReturn = 0;
             if (returnQty > 0 && stockIt) {
@@ -1933,10 +1863,8 @@
                     countedReturn = Math.round(itemCostCents(item) * returnQty / item.qty);
                 }
             }
-            // Cost of goods that really left the shop stays in COGS after the card is gone
             cogsAdjCents += contribution - countedReturn;
 
-            // Removes the card only. Revenue is NEVER changed here.
             cust.items.splice(idx, 1);
 
             if (cust.items.length === 0) {
@@ -1950,19 +1878,14 @@
             const ok = await uiConfirm('Ma hubtaa inaad sifeyso deyntan oo aad ka saarto liiska?', { okText: 'Sifee', cancelText: 'Jooji' });
             if (!ok) return;
 
-            // The goods were sold: their cost stays in COGS after the card is removed
             const cust = customers[key];
             if (!cust) return;
             cust.items.forEach(i => { cogsAdjCents += debtCostCents(i); });
 
-            // Removes the card only. Revenue is NEVER reduced here.
             delete customers[key];
             updateUI();
         }
 
-        // ---------- Separate deletion: Iibka Guud (Total Sales) ----------
-        // Resets total sales to $0.00 and removes the cash sale cards.
-        // Also resets COGS to $0 so profit stays consistent. Stock and debts are NOT touched.
         async function clearSales() {
             if (totalRevenue <= 0 && cashSales.length === 0) {
                 await uiAlert('Iibka guud horay ayuu u ahaa $0.00. Wax la tirtiro ma jiraan.');
@@ -1970,171 +1893,81 @@
             }
             const ok = await uiConfirm(
                 '⚠️ Digniin!\n\nWaxaad tirtirayaa Iibka Guud: $' + totalRevenue.toFixed(2) +
-                '\n\nDiiwaanka iibka kaashka ah ayaa sidoo kale la tirtirayaa, kharashka alaabta la iibiyay (COGS) waxaa loo celinayaa $0.' +
-                '\nDeynta maqan iyo stock-ga waa sidii oo kale (ma isbeddelayaan).' +
-                '\n\nMa hubtaa inaad tirtirto Iibka Guud?',
+                '\n\nDiiwaanka iibka kaashka ah ayaa sidoo kale la tirtirayaa. Ma hubtaa?',
                 { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
             );
             if (!ok) return;
 
+            cashSales.forEach(tx => { cogsAdjCents += itemCostCents(tx); });
             totalRevenue = 0;
             cashSales = [];
-            // Make COGS exactly $0.00 right now (debts still on file are offset)
-            cogsAdjCents = -recordsCogsCents();
             updateUI();
         }
 
-        // ---------- Separate deletion: Deynta Maqan (Total Debt) ----------
-        // Removes all customer debt cards. Total sales and cash sales are NOT touched.
-        // Goods from removed unpaid debts are NOT returned to stock, so their cost stays in COGS.
-        async function clearDebts() {
-            if (Object.keys(customers).length === 0) {
-                await uiAlert('Deynta maqan horay ayay u ahayd $0.00. Wax la tirtiro ma jiraan.');
+        async function clearDebt() {
+            const totalDebtC = getTotalDebtCents();
+            const customerCount = Object.keys(customers).length;
+            if (totalDebtC <= 0 && customerCount === 0) {
+                await uiAlert('Deynta guud horay ayuu u ahaa $0.00. Wax la tirtiro ma jiraan.');
                 return;
             }
-            let hasLinkedUnpaid = false;
-            Object.values(customers).forEach(c => {
-                c.items.forEach(i => { if (i.stockKey && remainingCents(i) > 0) hasLinkedUnpaid = true; });
-            });
             const ok = await uiConfirm(
-                '⚠️ Digniin!\n\nWaxaad tirtirayaa dhammaan Deynta Maqan: ' + money(getTotalDebtCents()) +
-                '\n\nDhammaan kaadhadhka macmiilka ayaa la tirtirayaa.' +
-                '\nIibka Guud waa sidii oo kale (ma isbeddelayso).' +
-                (hasLinkedUnpaid ? '\nAlaabta stock-ga ee deymahan lagu iibiyay looma soo celinayo stock-ga.' : '') +
-                '\n\nMa hubtaa inaad tirtirto Deynta Maqan?',
+                '⚠️ Digniin!\n\nWaxaad tirtirayaa Deynta Guud: ' + money(totalDebtC) +
+                '\n\nDhammaan deymihii macmiisha ayaa la tirtirayaa. Ma hubtaa?',
                 { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
             );
             if (!ok) return;
 
-            // Keep the cost of these goods in COGS after the cards are removed
-            Object.values(customers).forEach(c => {
-                c.items.forEach(i => { cogsAdjCents += debtCostCents(i); });
+            Object.values(customers).forEach(cust => {
+                cust.items.forEach(i => { cogsAdjCents += debtCostCents(i); });
             });
-
             customers = {};
             updateUI();
         }
 
-        // ---------- Delete: purchase (reverses its stock) ----------
-        // If part of the purchase was already sold, the deletion is refused first
-        // (stock cannot go below zero). Otherwise the stock question is asked, and the
-        // quantity is removed from stock only after OK.
-        async function deletePurchase(id) {
-            const p0 = purchases.find(p => p.id === id);
-            if (!p0) return;
-            const it0 = stock[p0.key];
-
-            let take0 = 0;
-            const field0 = p0.opening ? 'opening' : 'bought';
-            if (it0) {
-                take0 = Math.min(it0[field0] || 0, p0.qty);
-                if (r3(stockRemaining(it0) - take0) < 0) {
-                    await uiAlert('⚠️ Lama tirtiri karo!\n\nAlaabtan qayb ka mid ah waa la iibiyay, stock-gana ma filna si laga jaro ' + fmtQty(take0) + '.');
-                    return;
-                }
-            }
-
-            const ok = await uiConfirm(
-                '⚠️ ' + STOCK_DELETE_QUESTION +
-                '\n\n"' + p0.item + '" × ' + fmtQty(p0.qty) + ' — $' + Number(p0.total).toFixed(2) +
-                (it0 ? '\n\nStock-ga waxaa laga jarayaa: ' + fmtQty(take0) + '.' : ''),
-                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
-            );
-            if (!ok) return;
-
-            // Look the record up again after the answer
-            const idx = purchases.findIndex(p => p.id === id);
-            if (idx === -1) return;
-            const p = purchases[idx];
-            const it = stock[p.key];
-            const field = p.opening ? 'opening' : 'bought';
-            const take = it ? Math.min(it[field] || 0, p.qty) : 0;
-            if (it && r3(stockRemaining(it) - take) < 0) return;
-
-            if (it) it[field] = r3((it[field] || 0) - take);
-            purchases.splice(idx, 1);
-            updateUI();
-        }
-
-        // ---------- Delete: stock item (inventory row) ----------
-        async function deleteStockItem(key) {
-            const it0 = stock[key];
-            if (!it0) return;
-            const ok = await uiConfirm(
-                '⚠️ Digniin!\n\nWaxaad ka saarayaa stock-ga:\n"' + it0.name + '" (hadhay: ' + fmtQty(stockRemaining(it0)) + ')' +
-                '\n\nDiiwaanka iibsashada waa hadhayaa, iibka iyo deymuhuna ma isbeddelayaan.' +
-                '\n\nMa hubtaa inaad tirtirto?',
-                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
-            );
-            if (!ok) return;
-            if (!stock[key]) return;
-            delete stock[key];
-            updateUI();
-        }
-
-        // ---------- Delete: expense ----------
-        async function deleteExpense(id) {
-            const e0 = expenses.find(e => e.id === id);
-            if (!e0) return;
-            const ok = await uiConfirm(
-                '⚠️ Digniin!\n\nWaxaad tirtirayaa kharashka:\n' + (EXP_CATS[e0.category] || 'Kale') +
-                (e0.desc ? ' — ' + e0.desc : '') + ' — $' + Number(e0.amount).toFixed(2) +
-                '\n\nFaa\'iidada saafiga ah ayaa is beddelaysa.\n\nMa hubtaa?',
-                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
-            );
-            if (!ok) return;
-            const idx = expenses.findIndex(e => e.id === id);
-            if (idx === -1) return;
-            expenses.splice(idx, 1);
-            updateUI();
-        }
-
-        // ---------- Event delegation for all list buttons ----------
-        salesListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-action]');
-            if (!btn) return;
-            if (btn.dataset.action === 'delete-cash') deleteCashSale(btn.dataset.id);
-        });
-
-        debtListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-action]');
-            if (!btn) return;
-            const { action, id, key } = btn.dataset;
-
-            if (action === 'delete-item') deleteCustomerItem(key, id);
-            else if (action === 'settle') settleCustomer(key);
-        });
-
-        // Supplier ledger: tap a supplier row to open/close it, or delete a purchase line
-        purchasesListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-action]');
-            if (!btn) return;
-            const { action, id, key, open } = btn.dataset;
-
-            if (action === 'toggle-supplier') {
-                supplierOpen[key] = (open !== '1');
-                renderPurchases();
-            } else if (action === 'delete-purchase') {
-                deletePurchase(id);
-            }
-        });
-
-        inventoryListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-action]');
-            if (!btn) return;
-            if (btn.dataset.action === 'delete-stock') deleteStockItem(btn.dataset.key);
-        });
-
-        expensesListEl.addEventListener('click', (e) => {
-            const btn = e.target.closest('button[data-action]');
-            if (!btn) return;
-            if (btn.dataset.action === 'delete-expense') deleteExpense(btn.dataset.id);
-        });
-
         document.getElementById('clear-sales-btn').addEventListener('click', clearSales);
-        document.getElementById('clear-debt-btn').addEventListener('click', clearDebts);
+        document.getElementById('clear-debt-btn').addEventListener('click', clearDebt);
 
-        // ---------- Startup ----------
+        document.body.addEventListener('click', (e) => {
+            const btn = e.target.closest('button[data-action]');
+            if (!btn) return;
+            const action = btn.dataset.action;
+
+            if (action === 'delete-cash') {
+                deleteCashSale(btn.dataset.id);
+            } else if (action === 'delete-item') {
+                deleteCustomerItem(btn.dataset.key, btn.dataset.id);
+            } else if (action === 'settle') {
+                settleCustomer(btn.dataset.key);
+            } else if (action === 'delete-stock') {
+                const k = btn.dataset.key;
+                uiConfirm('Ma hubtaa inaad tirtirto alaabtan stock-ga ah?', { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }).then(ok => {
+                    if (ok) { delete stock[k]; updateUI(); }
+                });
+            } else if (action === 'delete-purchase') {
+                const id = btn.dataset.id;
+                uiConfirm('Ma hubtaa inaad tirtirto iibsashadan?', { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }).then(ok => {
+                    if (ok) {
+                        purchases = purchases.filter(p => p.id !== id);
+                        updateUI();
+                    }
+                });
+            } else if (action === 'delete-expense') {
+                const id = btn.dataset.id;
+                uiConfirm('Ma hubtaa inaad tirtirto kharashkan?', { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }).then(ok => {
+                    if (ok) {
+                        expenses = expenses.filter(ex => ex.id !== id);
+                        updateUI();
+                    }
+                });
+            } else if (action === 'toggle-supplier') {
+                const k = btn.dataset.key;
+                const cur = btn.dataset.open === '1';
+                supplierOpen[k] = !cur;
+                renderPurchases();
+            }
+        });
+
         migrateCustomers();
         renderSubscriptionUI();
         applyReadOnlyMode();
