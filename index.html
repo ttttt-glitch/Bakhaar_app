@@ -388,7 +388,7 @@
 
     <script>
         // =====================================================================
-        //  SNIPPET 1: CUSTOM MODALS & HEADER DATE
+        //  CUSTOM MODALS (Promise + async/await)
         // =====================================================================
         const modalOverlay = document.getElementById('modal-overlay');
         const modalTitleEl = document.getElementById('modal-title');
@@ -498,11 +498,10 @@
         function uiConfirm(text, opts) { return showModal(Object.assign({ kind: 'confirm', text: text }, opts)); }
         function uiPrompt(title, opts) { return showModal(Object.assign({ kind: 'prompt', title: title, text: '' }, opts)); }
 
-        // ---------- Header date ----------
         document.getElementById('current-date').innerText = new Date().toLocaleDateString();
 
         // =====================================================================
-        //  SNIPPET 2: OWNER SETTINGS & SUBSCRIPTION CORE
+        //  OWNER SETTINGS & SUBSCRIPTION
         // =====================================================================
         const vipDevices = ["0907123456"];
         const DEFAULT_EXPIRY_OVERRIDE = "2026-01-01";
@@ -568,7 +567,7 @@
         const subscriptionActive = (nowDate <= expiryDate || isVip);
 
         // =====================================================================
-        //  SNIPPET 3: MONTHLY CODE VERIFICATION & LICENSE UI
+        //  MONTHLY CODE VERIFICATION
         // =====================================================================
         const CODE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
         const CODE_LENGTH = 6;
@@ -742,7 +741,7 @@
         }
 
         // =====================================================================
-        //  SNIPPET 4: CORE UTILITIES & HELPERS
+        //  CORE UTILITIES & HELPERS
         // =====================================================================
         const STOCK_DELETE_QUESTION = 'Ma hubtaa inaad tirtiraysid iibkan stock-ga la xiriira?';
         const COGS_ON_CREDIT_AT_SALE = true;
@@ -783,8 +782,9 @@
         function fmtQty(n) { return String(r3(n)); }
 
         // =====================================================================
-        //  SNIPPET 5: CREDIT PURCHASE & LEDGER LOGIC
+        //  === SNIPPET 1: CREDIT PURCHASE PURE LOGIC ===
         // =====================================================================
+        // ---------- Credit purchase (pure function: never changes existing records) ----------
         const fromCents = c => c / 100;
         const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -793,6 +793,7 @@
             return d.getFullYear() + '-' + String(d.getMonth() + 1).padStart(2, '0') + '-' + String(d.getDate()).padStart(2, '0');
         }
 
+        // Makes an object and everything inside it read-only
         function deepFreeze(obj) {
             Object.values(obj).forEach(v => {
                 if (v && typeof v === 'object' && !Object.isFrozen(v)) deepFreeze(v);
@@ -800,6 +801,7 @@
             return Object.freeze(obj);
         }
 
+        // Double-entry lines: Debit Inventory Asset = Credit Cash (upfront) + Credit Accounts Payable (balance)
         function buildJournal(txnId, date, memo, totalC, paidC, balanceC) {
             const line = (account, debitC, creditC) =>
                 ({ txnId, date, account, debit: fromCents(debitC), credit: fromCents(creditC), memo });
@@ -814,11 +816,19 @@
             return lines;
         }
 
+        /*
+          data = { vendorName, itemName, quantity, totalAmount, amountPaid,
+                   debtIncurredDate ('YYYY-MM-DD', defaults to today), dueDate ('YYYY-MM-DD'), id (optional) }
+          vendors = current vendor ledger: { "cali wholesale": { name, balanceCents, lastPurchaseDate } }
+
+          Returns { ok:false, errors:[...] }  or  frozen { ok:true, purchase, vendor, vendors, journal }
+          Nothing passed in is changed. You get NEW objects back.
+        */
         function processCreditPurchase(data, vendors = {}) {
             const errors = [];
             const vendorName = String(data.vendorName || '').trim().replace(/\s+/g, ' ');
             const totalC = toCents(data.totalAmount);
-            const paidC = toCents(data.amountPaid || 0);
+            const paidC = toCents(data.amountPaid || 0);          // 400 = Scenario A, 0 = Scenario B
             const incurred = data.debtIncurredDate || todayISO();
             const dueDate = data.dueDate || null;
 
@@ -827,7 +837,7 @@
             if (paidC < 0 || paidC > totalC) errors.push('Lacagta hore la bixiyay waa inay u dhaxaysaa 0 iyo wadarta.');
             if (!ISO_DATE.test(incurred)) errors.push('Taariikhda deynta waa khalad (YYYY-MM-DD).');
 
-            const balanceC = totalC - paidC;
+            const balanceC = totalC - paidC;                       // balance due
             if (balanceC > 0) {
                 if (!dueDate || !ISO_DATE.test(dueDate)) errors.push('Taariikhda lacag-bixinta (dueDate) waa loo baahan yahay.');
                 else if (dueDate < incurred) errors.push('dueDate ma noqon karto ka hor taariikhda deynta.');
@@ -838,6 +848,7 @@
             const key = vendorName.toLowerCase();
             const prev = vendors[key] || { name: vendorName, balanceCents: 0 };
 
+            // New vendor record with the updated running balance (the old one is untouched)
             const vendor = {
                 ...prev,
                 balanceCents: prev.balanceCents + balanceC,
@@ -870,6 +881,9 @@
             });
         }
 
+        // =====================================================================
+        //  === SNIPPET 3: SAVING WITHOUT EDITING OLD RECORDS ===
+        // =====================================================================
         let vendorLedger = loadJSON('ganacsi_vendor_ledger', {});
         let journalLog = loadJSON('ganacsi_journal', []);
 
@@ -879,8 +893,8 @@
                 await uiAlert('⚠️ Digniin!\n\n' + result.errors.join('\n'));
                 return null;
             }
-            vendorLedger = result.vendors;
-            journalLog = [...journalLog, ...result.journal];
+            vendorLedger = result.vendors;                     // replace, never edit in place
+            journalLog = [...journalLog, ...result.journal];   // append only
             purchases = [...purchases, result.purchase];
             localStorage.setItem('ganacsi_vendor_ledger', JSON.stringify(vendorLedger));
             localStorage.setItem('ganacsi_journal', JSON.stringify(journalLog));
@@ -889,7 +903,7 @@
         }
 
         // =====================================================================
-        //  SNIPPET 6: STATE DECLARATIONS & DOM ELEMENTS
+        //  STATE DECLARATIONS
         // =====================================================================
         let cashSales = loadJSON('ganacsi_cash', []);
         let customers = loadJSON('ganacsi_customers', {});
@@ -958,7 +972,7 @@
         };
 
         // =====================================================================
-        //  SNIPPET 7: INVENTORY, COGS & FINANCIAL ENGINE
+        //  INVENTORY, COGS & FINANCIAL ENGINE
         // =====================================================================
         function saveData() {
             localStorage.setItem('ganacsi_cash', JSON.stringify(cashSales));
@@ -1071,7 +1085,7 @@
         }
 
         // =====================================================================
-        //  SNIPPET 8: FORM HELPERS & UI REFRESHERS
+        //  FORM HELPERS
         // =====================================================================
         let lastAutoDesc = '';
 
@@ -1186,7 +1200,7 @@
         }
 
         // =====================================================================
-        //  SNIPPET 9: RENDERING FUNCTIONS (UI VIEWS)
+        //  RENDERING FUNCTIONS
         // =====================================================================
         function renderSummary() {
             totalSalesEl.innerText = `$${totalRevenue.toFixed(2)}`;
@@ -1566,7 +1580,7 @@
         });
 
         // =====================================================================
-        //  SNIPPET 10: EVENT LISTENERS & FORM SUBMISSIONS
+        //  EVENT LISTENERS & FORM SUBMISSIONS
         // =====================================================================
         form.addEventListener('submit', async (e) => {
             e.preventDefault();
@@ -1793,7 +1807,8 @@
             } else {
                 msg =
                     '⚠️ Digniin!' +
-                    '\n\nWaxaad tirtirayaa iibkan:\n"' + first.description + '" — $' + first.amount.toFixed(2) +                     '\n\nIibka guud waxaa laga jarayaa:$' + first.amount.toFixed(2) + '.\n\nMa hubtaa?';
+                    '\n\nWaxaad tirtirayaa iibkan:\n"' + first.description + '" — $' + first.amount.toFixed(2) +
+                    '\n\nIibka guud waxaa laga jarayaa: $' + first.amount.toFixed(2) + '.\n\nMa hubtaa?';
             }
 
             const ok = await uiConfirm(msg, { danger: true, okText: 'Tirtir', cancelText: 'Jooji' });
