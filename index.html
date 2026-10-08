@@ -121,7 +121,7 @@
         .modal-btn-ok { background: #059669; color: white; }
         .modal-btn-ok.danger { background: #e11d48; }
 
-        /* SNIPPET 1: credit fields + AP journal rows */
+        /* Credit fields + AP journal rows */
         #p-credit-fields { display: flex; flex-direction: column; gap: 0.75rem; }
         .ap-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; background: #f5f3ff; border: 1px solid #ddd6fe; border-radius: 0.5rem; padding: 0.55rem 0.7rem; font-size: 0.8rem; margin-top: 0.4rem; }
         .ap-row.late { background: #fff1f2; border-color: #fecdd3; }
@@ -132,6 +132,10 @@
         .jr-check { font-size: 0.72rem; margin-top: 0.5rem; }
         .jr-check.ok { color: #047857; }
         .jr-check.bad { color: #be123c; }
+
+        /* Vendor payment */
+        .mini-btn { font-size: 0.7rem; background: white; border: 1px solid #7c3aed; color: #5b21b6; border-radius: 0.4rem; padding: 0.25rem 0.55rem; cursor: pointer; white-space: nowrap; }
+        .mini-btn:disabled { opacity: 0.5; cursor: not-allowed; }
     </style>
 
     <link rel="manifest" href="/Bakhaar_app/manifest.json">
@@ -287,7 +291,6 @@
                         <datalist id="supplier-names"></datalist>
                     </div>
 
-                    <!-- SNIPPET 2a: Credit fields -->
                     <div id="p-credit-fields">
                         <div>
                             <label>Lacagta hadda la bixiyay (Amount Paid Now, USD)</label>
@@ -302,6 +305,32 @@
 
                     <button type="submit" class="save-btn" id="p-save-btn">Kaydi Iibsashada (Save)</button>
                 </form>
+            </div>
+
+            <!-- VENDOR PAYMENT CARD -->
+            <div class="card">
+                <h2><span>💵 Bixinta Deynta Alaab-qeybiyaha</span></h2>
+
+                <form id="vendor-pay-form" class="lock-form">
+                    <div>
+                        <label>Alaab-qeybiyaha (Vendor)</label>
+                        <select id="vp-vendor"></select>
+                        <p id="vp-info" class="hint info" hidden></p>
+                    </div>
+                    <div>
+                        <label>Lacagta la bixinayo (Payment Amount, USD)</label>
+                        <input type="number" step="any" min="0.01" id="vp-amount" placeholder="0.00" required>
+                        <button type="button" id="vp-full-btn" class="mini-btn" style="margin-top:0.4rem;" hidden>Bixi dhammaan deynta</button>
+                    </div>
+                    <div>
+                        <label>Faahfaahin (ikhtiyaari)</label>
+                        <input type="text" id="vp-note" autocomplete="off">
+                    </div>
+                    <button type="submit" class="save-btn" id="vp-save-btn">Bixi (Pay)</button>
+                </form>
+
+                <p class="jr-head">Bixinnadii ugu dambeeyay</p>
+                <div id="vp-history"></div>
             </div>
 
             <div class="card">
@@ -336,7 +365,6 @@
                 <div id="pl-card"></div>
             </div>
 
-            <!-- SNIPPET 2b: Supplier AP & Journal card -->
             <div class="card">
                 <h2><span>📥 Iibsashada & Deymaha Alaab-qeybiyayaasha</span></h2>
                 <div id="journal-card"></div>
@@ -521,7 +549,10 @@
         const LS_LAST_SEEN = 'ganacsi_last_seen';
 
         function pad2(n) { return String(n).padStart(2, '0'); }
-        function toISODate(d) { return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate()); }
+
+        function toISODate(d) {
+            return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+        }
 
         function endOfDay(iso) {
             const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(String(iso));
@@ -752,7 +783,7 @@
         function fmtQty(n) { return String(r3(n)); }
 
         // =====================================================================
-        //  SNIPPET 1: CREDIT PURCHASE PURE LOGIC
+        //  CREDIT PURCHASE PURE LOGIC
         // =====================================================================
         const fromCents = c => c / 100;
         const ISO_DATE = /^\d{4}-\d{2}-\d{2}$/;
@@ -840,7 +871,7 @@
         }
 
         // =====================================================================
-        //  SNIPPET 5: SAVE CREDIT PURCHASE (ledger + journal only)
+        //  SAVE CREDIT PURCHASE (ledger + journal only)
         // =====================================================================
         async function saveCreditPurchase(data) {
             const result = processCreditPurchase(data, vendorLedger);
@@ -856,7 +887,7 @@
         }
 
         // =====================================================================
-        //  SNIPPET 7a: REVERSING ENTRIES FOR DELETED PURCHASES
+        //  REVERSING ENTRIES FOR DELETED PURCHASES
         // =====================================================================
         function reverseCreditPurchase(rec, vendors, date) {
             const txnId = rec.id + '-rev';
@@ -890,20 +921,138 @@
         }
 
         // =====================================================================
-        //  SNIPPET 8a: JOURNAL TOTALS + JOURNAL CARD RENDERER
+        //  VENDOR PAYMENT PURE LOGIC
+        // =====================================================================
+        function purchaseVendorKey(p) { return normalize(p.supplier || p.vendor || ''); }
+
+        function processVendorPayment(data, vendors = {}, purchasesList = []) {
+            const errors = [];
+            const key = normalize(data.vendorKey || data.vendorName || '');
+            const vendor = vendors[key];
+            const payC = toCents(data.amount);
+            const date = data.date || todayISO();
+
+            if (!vendor) errors.push('Alaab-qeybiyahan lama helin.');
+            if (!(payC > 0)) errors.push('Lacagta bixinta waa inay ka weyn tahay 0.');
+            if (!ISO_DATE.test(date)) errors.push('Taariikhda bixinta waa khalad (YYYY-MM-DD).');
+
+            const open = purchasesList
+                .map((p, index) => ({ p, index }))
+                .filter(({ p }) => purchaseVendorKey(p) === key && toCents(p.balanceDue) > 0)
+                .sort((a, b) =>
+                    (a.p.dueDate || '9999-12-31').localeCompare(b.p.dueDate || '9999-12-31') || a.index - b.index);
+            const openC = open.reduce((s, { p }) => s + toCents(p.balanceDue), 0);
+
+            if (vendor && payC > 0) {
+                if (payC > vendor.balanceCents) {
+                    errors.push('Lacagta (' + money(payC) + ') way ka badan tahay deynta hadhay (' + money(vendor.balanceCents) + ').');
+                } else if (vendor.balanceCents !== openC) {
+                    errors.push('Diiwaanka iibsashada (' + money(openC) + ') iyo hadhaagga alaab-qeybiyaha (' + money(vendor.balanceCents) + ') isma raacayaan.');
+                }
+            }
+            if (errors.length) return { ok: false, errors };
+
+            let left = payC;
+            const allocations = [];
+            const updated = new Map();
+            for (const { p, index } of open) {
+                if (left <= 0) break;
+                const owedC = toCents(p.balanceDue);
+                const takeC = Math.min(owedC, left);
+                const newBalC = owedC - takeC;
+                updated.set(index, {
+                    ...p,
+                    paid: fromCents(toCents(p.paid) + takeC),
+                    balanceDue: fromCents(newBalC),
+                    status: newBalC === 0 ? 'paid' : 'partial'
+                });
+                allocations.push({ purchaseId: p.id, amount: fromCents(takeC) });
+                left -= takeC;
+            }
+            const newPurchases = purchasesList.map((p, i) => updated.get(i) || p);
+
+            const txnId = data.id || ('_' + Math.random().toString(36).slice(2, 11));
+            const newVendor = { ...vendor, balanceCents: vendor.balanceCents - payC, lastPaymentDate: date };
+
+            const memo = 'Bixin deyn: ' + vendor.name + (data.note ? ' — ' + data.note : '');
+            const line = (account, debitC, creditC) => ({
+                txnId, kind: 'vendor-payment', vendorKey: key, date, account,
+                debit: fromCents(debitC), credit: fromCents(creditC), memo
+            });
+            const journal = [line('Accounts Payable', payC, 0), line('Cash', 0, payC)];
+
+            const payment = {
+                id: txnId, vendorKey: key, vendor: vendor.name, amount: fromCents(payC),
+                date, time: data.time || '', note: data.note || '', allocations,
+                balanceAfter: fromCents(newVendor.balanceCents)
+            };
+
+            return {
+                ok: true,
+                payment: deepFreeze(payment),
+                vendor: deepFreeze(newVendor),
+                vendors: { ...vendors, [key]: newVendor },
+                purchases: newPurchases,
+                journal: deepFreeze(journal)
+            };
+        }
+
+        function reverseVendorPayment(payment, vendors, purchasesList, date) {
+            const byId = new Map(purchasesList.map((p, i) => [p.id, i]));
+            const allocs = payment.allocations || [];
+            if (allocs.some(a => !byId.has(a.purchaseId))) {
+                return { ok: false, errors: ['Iibsasho ay bixintan ku xirnayd waa la tirtiray, sidaas darteed bixintan lama tirtiri karo.'] };
+            }
+
+            const amountC = toCents(payment.amount);
+            const updated = new Map();
+            allocs.forEach(a => {
+                const i = byId.get(a.purchaseId);
+                const p = updated.get(i) || purchasesList[i];
+                const aC = toCents(a.amount);
+                const newPaidC = toCents(p.paid) - aC;
+                updated.set(i, {
+                    ...p,
+                    paid: fromCents(newPaidC),
+                    balanceDue: fromCents(toCents(p.balanceDue) + aC),
+                    status: newPaidC <= 0 ? 'unpaid' : 'partial'
+                });
+            });
+            const newPurchases = purchasesList.map((p, i) => updated.get(i) || p);
+
+            const txnId = payment.id + '-rev';
+            const line = (account, debitC, creditC) => ({
+                txnId, kind: 'vendor-payment-reversal', reversalOf: payment.id, vendorKey: payment.vendorKey, date, account,
+                debit: fromCents(debitC), credit: fromCents(creditC), memo: 'Rarayn bixin: ' + payment.vendor
+            });
+            const journal = [line('Cash', amountC, 0), line('Accounts Payable', 0, amountC)];
+
+            const prev = vendors[payment.vendorKey] || { name: payment.vendor, balanceCents: 0 };
+            const newVendor = { ...prev, balanceCents: prev.balanceCents + amountC };
+
+            return { ok: true, vendors: { ...vendors, [payment.vendorKey]: newVendor }, purchases: newPurchases, journal: deepFreeze(journal) };
+        }
+
+        // =====================================================================
+        //  JOURNAL TOTALS + JOURNAL CARD
         // =====================================================================
         function journalTotals() {
-            const t = { invDr: 0, invCr: 0, cashOut: 0, cashIn: 0, apCr: 0, apDr: 0 };
+            const t = { invDr: 0, invCr: 0, cashOut: 0, cashIn: 0, apCr: 0, apDr: 0, vpOut: 0 };
             journalLog.forEach(l => {
                 const d = toCents(l.debit), c = toCents(l.credit);
                 if (l.account === 'Inventory Asset') { t.invDr += d; t.invCr += c; }
-                else if (l.account === 'Cash') { t.cashOut += c; t.cashIn += d; }
-                else if (l.account === 'Accounts Payable') { t.apCr += c; t.apDr += d; }
+                else if (l.account === 'Cash') {
+                    t.cashOut += c; t.cashIn += d;
+                    if (String(l.kind || '').startsWith('vendor-payment')) t.vpOut += c - d;
+                } else if (l.account === 'Accounts Payable') { t.apCr += c; t.apDr += d; }
             });
+            const cashNet = t.cashOut - t.cashIn;
             return {
                 inventoryNet: t.invDr - t.invCr,
-                cashPaidNet: t.cashOut - t.cashIn,
-                payableNet: t.apCr - t.apDr
+                cashPaidNet: cashNet,
+                payableNet: t.apCr - t.apDr,
+                vendorPaidNet: t.vpOut,
+                purchaseCashNet: cashNet - t.vpOut
             };
         }
 
@@ -924,7 +1073,7 @@
             const vendorRows = owing.map(v => {
                 const key = normalize(v.name);
                 const dues = purchases
-                    .filter(p => p.balanceDue > 0 && p.dueDate && normalize(p.supplier || '') === key)
+                    .filter(p => p.balanceDue > 0 && p.dueDate && purchaseVendorKey(p) === key)
                     .map(p => p.dueDate).sort();
                 const next = dues[0];
                 const late = !!next && next < today;
@@ -932,7 +1081,7 @@
                 return `
                     <div class="ap-row ${late ? 'late' : ''}">
                         <div><div class="n">🏭 ${escapeHtml(v.name)}</div><div class="s">${escapeHtml(sub)}</div></div>
-                        <b>${money(v.balanceCents)}</b>
+                        <div style="display:flex; align-items:center; gap:0.4rem;"><b>${money(v.balanceCents)}</b><button type="button" class="mini-btn" data-action="pay-vendor" data-key="${escapeHtml(key)}" ${subscriptionActive ? '' : 'disabled'}>💵 Bixi</button></div>
                     </div>`;
             }).join('') || '<p class="text-center">Alaab-qeybiye deyn lagu leeyahay ma jiro.</p>';
 
@@ -944,6 +1093,8 @@
 
             el.innerHTML = `
                 <div class="pl-line"><span>💵 Lacag baxday (Cash Out)</span><b>${money(t.cashPaidNet)}</b></div>
+                <div class="pl-sub"><span>Iibsasho (la bixiyay marka la iibsaday)</span><span>${money(t.purchaseCashNet)}</span></div>
+                <div class="pl-sub"><span>Bixinta deymaha alaab-qeybiyayaasha</span><span>${money(t.vendorPaidNet)}</span></div>
                 <div class="pl-line"><span>📒 Deyn la leeyahay (Accounts Payable)</span><b>${money(t.payableNet)}</b></div>
                 <div class="pl-line strong"><span>📦 Isbeddelka Inventory Asset</span><span>${moneySigned(t.inventoryNet)}</span></div>
 
@@ -959,9 +1110,6 @@
             `;
         }
 
-        // =====================================================================
-        //  SNIPPET 9a: CREDIT TAG HELPER
-        // =====================================================================
         function creditTag(p) {
             if (p.status === 'paid') return ' • ✅ la bixiyay';
             if (p.balanceDue > 0) return ' • 💳 deyn ' + money(toCents(p.balanceDue)) + (p.dueDate ? ' • dhaco ' + p.dueDate : '');
@@ -969,10 +1117,11 @@
         }
 
         // =====================================================================
-        //  SNIPPET 3: STATE (ledger, journal, credit field refs)
+        //  STATE
         // =====================================================================
         let vendorLedger = loadJSON('ganacsi_vendor_ledger', {});
         let journalLog = loadJSON('ganacsi_journal', []);
+        let vendorPayments = loadJSON('ganacsi_vendor_payments', []);
 
         const pPaidEl = document.getElementById('p-paid');
         const pDueEl = document.getElementById('p-due');
@@ -980,9 +1129,14 @@
         const pCreditFieldsEl = document.getElementById('p-credit-fields');
         const pCreditHintEl = document.getElementById('p-credit-hint');
 
-        // =====================================================================
-        //  STATE DECLARATIONS
-        // =====================================================================
+        const vendorPayForm = document.getElementById('vendor-pay-form');
+        const vpVendorEl = document.getElementById('vp-vendor');
+        const vpInfoEl = document.getElementById('vp-info');
+        const vpAmountEl = document.getElementById('vp-amount');
+        const vpNoteEl = document.getElementById('vp-note');
+        const vpFullBtn = document.getElementById('vp-full-btn');
+        const vpHistoryEl = document.getElementById('vp-history');
+
         let cashSales = loadJSON('ganacsi_cash', []);
         let customers = loadJSON('ganacsi_customers', {});
         let totalRevenue = parseFloat(localStorage.getItem('ganacsi_revenue')) || 0;
@@ -1278,7 +1432,7 @@
         }
 
         // =====================================================================
-        //  SNIPPET 4: CONDITIONAL DUE DATE & LIVE HINT
+        //  CONDITIONAL DUE DATE & LIVE HINT (purchase form)
         // =====================================================================
         function refreshCreditFields() {
             const opening = pTypeEl.value === 'opening';
@@ -1306,6 +1460,89 @@
             } else {
                 pCreditHintEl.textContent = '✅ Waa la bixiyay oo dhan: ' + money(paidC) + ' (deyn ma jirto).';
             }
+        }
+
+        // =====================================================================
+        //  VENDOR PAYMENT UI
+        // =====================================================================
+        function persistVendorState() {
+            localStorage.setItem('ganacsi_vendor_ledger', JSON.stringify(vendorLedger));
+            localStorage.setItem('ganacsi_journal', JSON.stringify(journalLog));
+            localStorage.setItem('ganacsi_vendor_payments', JSON.stringify(vendorPayments));
+            saveData();
+        }
+
+        function applyVendorPayment(result) {
+            vendorLedger = result.vendors;
+            journalLog = [...journalLog, ...result.journal];
+            purchases = result.purchases;
+            vendorPayments = [...vendorPayments, result.payment];
+            persistVendorState();
+        }
+
+        function renderVendorPayUI() {
+            const cur = vpVendorEl.value;
+            const owing = Object.keys(vendorLedger)
+                .filter(k => vendorLedger[k].balanceCents > 0)
+                .sort((a, b) => vendorLedger[b].balanceCents - vendorLedger[a].balanceCents);
+
+            vpVendorEl.innerHTML = '';
+            const first = document.createElement('option');
+            first.value = '';
+            first.textContent = owing.length ? '— Dooro alaab-qeybiye —' : 'Alaab-qeybiye deyn lagu leeyahay ma jiro';
+            vpVendorEl.appendChild(first);
+            owing.forEach(k => {
+                const o = document.createElement('option');
+                o.value = k;
+                o.textContent = vendorLedger[k].name + ' — ' + money(vendorLedger[k].balanceCents);
+                vpVendorEl.appendChild(o);
+            });
+            vpVendorEl.value = owing.includes(cur) ? cur : '';
+
+            refreshVendorPayInfo();
+            renderVendorPayHistory();
+        }
+
+        function refreshVendorPayInfo() {
+            const key = vpVendorEl.value;
+            const v = vendorLedger[key];
+            if (!v) { vpInfoEl.hidden = true; vpFullBtn.hidden = true; return; }
+
+            const dues = purchases
+                .filter(p => purchaseVendorKey(p) === key && toCents(p.balanceDue) > 0 && p.dueDate)
+                .map(p => p.dueDate).sort();
+
+            let text = 'Deyn hadhay: ' + money(v.balanceCents) + (dues[0] ? ' • Lacag-bixin: ' + dues[0] : '');
+            const amt = parseFloat(vpAmountEl.value);
+            if (amt > 0) {
+                const afterC = v.balanceCents - toCents(amt);
+                text += afterC >= 0 ? ' • Kadib bixinta: ' + money(afterC) : ' • ⚠️ Way ka badan tahay deynta.';
+            }
+            vpInfoEl.textContent = text;
+            vpInfoEl.hidden = false;
+            vpFullBtn.hidden = false;
+        }
+
+        function renderVendorPayHistory() {
+            vpHistoryEl.innerHTML = '';
+            if (!vendorPayments.length) {
+                vpHistoryEl.innerHTML = '<p class="text-center">Wali bixin lama gelin.</p>';
+                return;
+            }
+            vendorPayments.slice(-8).reverse().forEach(p => {
+                const row = document.createElement('div');
+                row.className = 'ap-row';
+                row.innerHTML = `
+                    <div>
+                        <div class="n">💵 ${escapeHtml(p.vendor)}</div>
+                        <div class="s">${escapeHtml(p.date)} ${escapeHtml(p.time || '')}${p.note ? ' • ' + escapeHtml(p.note) : ''} • markaas hadhay ${money(toCents(p.balanceAfter))}</div>
+                    </div>
+                    <div style="display:flex; align-items:center; gap:0.3rem;">
+                        <b>${money(toCents(p.amount))}</b>
+                        <button type="button" class="del-btn" data-action="delete-vpay" data-id="${escapeHtml(p.id)}">✕</button>
+                    </div>`;
+                vpHistoryEl.appendChild(row);
+            });
         }
 
         // =====================================================================
@@ -1669,6 +1906,7 @@
             renderExpenses();
             renderPL();
             renderJournalCard();
+            renderVendorPayUI();
             refreshStockNames();
             refreshSupplierNames();
             refreshFormExtras();
@@ -1824,15 +2062,12 @@
         pQtyEl.addEventListener('input', updatePurchaseTotalHint);
         pCostEl.addEventListener('input', updatePurchaseTotalHint);
 
-        // SNIPPET 4 event listeners
         pQtyEl.addEventListener('input', refreshCreditFields);
         pCostEl.addEventListener('input', refreshCreditFields);
         pPaidEl.addEventListener('input', refreshCreditFields);
         pTypeEl.addEventListener('change', refreshCreditFields);
 
-        // =====================================================================
-        //  SNIPPET 6: PURCHASE SUBMIT HANDLER (replaces previous)
-        // =====================================================================
+        // ---- Purchase submit handler (with credit + credit save) ----
         purchaseForm.addEventListener('submit', async (e) => {
             e.preventDefault();
             if (!subscriptionActive) {
@@ -1859,7 +2094,6 @@
             const id = '_' + Math.random().toString(36).slice(2, 11);
             const key = normalize(name);
 
-            // Credit / payment check
             let credit = null;
             if (!opening) {
                 const raw = pPaidEl.value.trim();
@@ -1891,7 +2125,6 @@
                 if (!credit) return;
             }
 
-            // Stock
             if (!stock[key]) {
                 stock[key] = { name, opening: 0, bought: 0, sold: 0, avgCost: 0 };
             }
@@ -1904,7 +2137,6 @@
             if (opening) it.opening = r3((it.opening || 0) + qty);
             else it.bought = r3((it.bought || 0) + qty);
 
-            // Purchase record: old shape + credit fields
             const creditFields = credit ? {
                 paid: credit.purchase.paid,
                 balanceDue: credit.purchase.balanceDue,
@@ -2118,9 +2350,6 @@
         document.getElementById('clear-sales-btn').addEventListener('click', clearSales);
         document.getElementById('clear-debt-btn').addEventListener('click', clearDebt);
 
-        // =====================================================================
-        //  SNIPPET 7b: DELETE PURCHASE (with reversal hook)
-        // =====================================================================
         async function deletePurchase(id) {
             const p0 = purchases.find(p => p.id === id);
             if (!p0) return;
@@ -2153,15 +2382,12 @@
             if (it && r3(stockRemaining(it) - take) < 0) return;
 
             if (it) it[field] = r3((it[field] || 0) - take);
-
-            // SNIPPET 7b: reversal hook
             if (p.journalTxnId) applyCreditReversal(p);
 
             purchases.splice(idx, 1);
             updateUI();
         }
 
-        // Delete: stock item
         async function deleteStockItem(key) {
             const it0 = stock[key];
             if (!it0) return;
@@ -2177,7 +2403,6 @@
             updateUI();
         }
 
-        // Delete: expense
         async function deleteExpense(id) {
             const e0 = expenses.find(e => e.id === id);
             if (!e0) return;
@@ -2193,6 +2418,112 @@
             expenses.splice(idx, 1);
             updateUI();
         }
+
+        // ---- Vendor payment: submit ----
+        vendorPayForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            if (!subscriptionActive) {
+                await uiAlert('⛔ Isdiiwaangelintii waa dhammaatay.\n\nDhaqaaji koodhka bisha si aad wax cusub u kaydiso.');
+                return;
+            }
+
+            const key = vpVendorEl.value;
+            const vendor = vendorLedger[key];
+            if (!vendor) {
+                await uiAlert('⚠️ Fadlan dooro alaab-qeybiye.');
+                return;
+            }
+
+            const amount = parseFloat(vpAmountEl.value);
+            if (!(amount > 0)) {
+                await uiAlert('⚠️ Fadlan geli lacag ka weyn $0.00.');
+                return;
+            }
+
+            if (toCents(amount) > vendor.balanceCents) {
+                await uiAlert('⚠️ Digniin!\n\nLacagta aad gelisay (' + money(toCents(amount)) + ') way ka badan tahay deynta hadhay (' +
+                    money(vendor.balanceCents) + ') ee ' + vendor.name + '.\n\nBixinta lama kaydin.');
+                vpAmountEl.focus();
+                return;
+            }
+
+            const afterC = vendor.balanceCents - toCents(amount);
+            const ok = await uiConfirm(
+                'Ma hubtaa bixintan?\n\n' + vendor.name + '\nLacagta: ' + money(toCents(amount)) +
+                '\nHadhaagga cusub: ' + money(afterC),
+                { okText: 'Bixi', cancelText: 'Jooji' }
+            );
+            if (!ok) return;
+
+            const now = new Date();
+            const result = processVendorPayment({
+                vendorKey: key,
+                amount,
+                date: todayISO(),
+                time: now.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
+                note: vpNoteEl.value.trim()
+            }, vendorLedger, purchases);
+
+            if (!result.ok) {
+                await uiAlert('⚠️ Digniin!\n\n' + result.errors.join('\n'));
+                return;
+            }
+
+            applyVendorPayment(result);
+            vendorPayForm.reset();
+            updateUI();
+        });
+
+        // ---- Vendor payment: delete ----
+        async function deleteVendorPayment(id) {
+            const pay = vendorPayments.find(p => p.id === id);
+            if (!pay) return;
+
+            const result = reverseVendorPayment(pay, vendorLedger, purchases, todayISO());
+            if (!result.ok) {
+                await uiAlert('⚠️ Lama tirtiri karo!\n\n' + result.errors.join('\n'));
+                return;
+            }
+
+            const ok = await uiConfirm(
+                '⚠️ Ma hubtaa inaad tirtirto bixintan?\n\n' + pay.vendor + ' — ' + money(toCents(pay.amount)) +
+                '\n\nDeynta alaab-qeybiyaha ayaa ku soo noqonaysa, lacagtuna waxay ku soo laaban doontaa Cash. Journal-ka waxaa lagu dari doonaa rarayn.',
+                { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
+            );
+            if (!ok) return;
+            if (!vendorPayments.some(p => p.id === id)) return;
+
+            vendorLedger = result.vendors;
+            journalLog = [...journalLog, ...result.journal];
+            purchases = result.purchases;
+            vendorPayments = vendorPayments.filter(p => p.id !== id);
+            persistVendorState();
+            updateUI();
+        }
+
+        // ---- Vendor payment: listeners ----
+        vpVendorEl.addEventListener('change', () => { vpAmountEl.value = ''; refreshVendorPayInfo(); });
+        vpAmountEl.addEventListener('input', refreshVendorPayInfo);
+        vpFullBtn.addEventListener('click', () => {
+            const v = vendorLedger[vpVendorEl.value];
+            if (!v) return;
+            vpAmountEl.value = (v.balanceCents / 100).toFixed(2);
+            refreshVendorPayInfo();
+        });
+        vpHistoryEl.addEventListener('click', (e) => {
+            const b = e.target.closest('button[data-action="delete-vpay"]');
+            if (b) deleteVendorPayment(b.dataset.id);
+        });
+
+        // ---- Pay button on vendor rows in Xisaab ----
+        document.getElementById('journal-card').addEventListener('click', (e) => {
+            const b = e.target.closest('button[data-action="pay-vendor"]');
+            if (!b) return;
+            showTab('buy');
+            vpVendorEl.value = b.dataset.key;
+            refreshVendorPayInfo();
+            vpAmountEl.focus();
+        });
 
         // =====================================================================
         //  EVENT DELEGATION FOR LIST BUTTONS
@@ -2238,7 +2569,7 @@
         });
 
         // =====================================================================
-        //  SNIPPET 10: STARTUP
+        //  STARTUP
         // =====================================================================
         pDueEl.min = todayISO();
         refreshCreditFields();
