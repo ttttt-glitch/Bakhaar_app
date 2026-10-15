@@ -160,8 +160,8 @@
         const st = { salesC: 0, cogsC: 0, purchasesC: 0, opexC: 0, payC: 0, netC: 0, skipped: 0, byCat: {} };
         function inMonth(d) { return !!d && d.getFullYear() === year && d.getMonth() === monthIndex; }
 
-        // Cash sales
-        cashSales.forEach(function (tx) {
+        // Cash sales (live + archived, so "Tirtir Iibka" does not erase them)
+        allCashSalesForReports().forEach(function (tx) {
             const d = parseAppDate(tx.date);
             if (!d) { st.skipped++; return; }
             if (inMonth(d)) { st.salesC += toCents(tx.amount); st.cogsC += costOf(tx); }
@@ -215,6 +215,108 @@
         purchases.forEach(function (p) { if (!p.opening) purchasesC += toCents(p.total); });
         return { salesC: revC, cogsC: cogsC, opexC: opexC, payC: payC, purchasesC: purchasesC,
                  netC: revC - (cogsC + opexC + payC) };
+    }
+
+    // ----- Cash-sales archive (survives "Tirtir Iibka") -----
+    // Every cash sale the app has ever had is copied here. The app's own list (cashSales)
+    // is emptied by "Tirtir Iibka"; this archive is never emptied.
+    // Extra fields on each copy:  _live = still in cashSales at the last sync
+    //                             _carry = cashCarryCents when it was last seen live
+    //                             _void = deleted ONE BY ONE as a mistaken sale (stops counting)
+    const LS_ARCHIVE = 'ganacsi_cash_archive';
+    const X_ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+
+    function readCashArchive() {
+        const v = loadJSON(LS_ARCHIVE, []);
+        return Array.isArray(v) ? v : [];
+    }
+    function writeCashArchive(list) { localStorage.setItem(LS_ARCHIVE, JSON.stringify(list)); }
+
+    function syncCashArchive() {
+        const archive = readCashArchive();
+        const byId = new Map(archive.map(function (r) { return [r.id, r]; }));
+        const liveIds = new Set(cashSales.map(function (t) { return t.id; }));
+        const carryNow = (typeof cashCarryCents === 'number') ? cashCarryCents : 0;
+        let changed = false;
+
+        // 1. Records that left cashSales since the last sync
+        const gone = archive.filter(function (r) { return r._live && !liveIds.has(r.id); });
+        // "Tirtir Iibka" raises cashCarryCents (and removes many at once);
+        // deleting a single mistaken sale does neither.
+        const cleared = gone.length >= 2 || gone.some(function (r) { return carryNow > (r._carry || 0); });
+        gone.forEach(function (r) {
+            r._live = false;
+            if (!cleared) r._void = true;
+            changed = true;
+        });
+
+        // 2. New records are appended; live ones are refreshed
+        cashSales.forEach(function (tx) {
+            const r = byId.get(tx.id);
+            if (!r) {
+                archive.push(Object.assign({}, tx, { _live: true, _carry: carryNow }));
+                changed = true;
+            } else if (!r._live || r._carry !== carryNow) {
+                r._live = true;
+                r._carry = carryNow;
+                changed = true;
+            }
+        });
+
+        if (changed) writeCashArchive(archive);
+    }
+
+    // Live sales + archived sales, each sale once (by id), mistaken deletions left out
+    function allCashSalesForReports() {
+        const out = [];
+        const seen = new Set();
+        cashSales.forEach(function (t) { seen.add(t.id); out.push(t); });
+        readCashArchive().forEach(function (r) {
+            if (r._void || seen.has(r.id)) return;
+            seen.add(r.id);
+            out.push(r);
+        });
+        return out;
+    }
+
+    // ----- Cash on hand at the END of a past day -----
+    // Starts from today's exact figure and rolls back everything dated AFTER `iso`:
+    //   cash(iso) = cashOnHandCents()
+    //             - cash sales after iso          (live + archive)
+    //             - debt collections after iso    (by date of last payment)
+    //             + expenses after iso
+    //             + cash paid to suppliers after iso (journal lines on Cash)
+    // For today it returns exactly cashOnHandCents().
+    function cashOnHandCentsAt(iso) {
+        const now = cashOnHandCents();
+        if (!X_ISO_DAY.test(iso) || iso >= todayISO()) return now;
+
+        function after(str) {
+            const d = parseAppDate(str);
+            return !!d && toISODate(d) > iso;
+        }
+
+        let inAfter = 0;
+        allCashSalesForReports().forEach(function (tx) {
+            if (after(tx.date)) inAfter += toCents(tx.amount);
+        });
+        Object.values(customers).forEach(function (c) {
+            (c.items || []).forEach(function (item) {
+                if (toCents(item.paid) > 0 && after(item.paidDate || item.date)) inAfter += toCents(item.paid);
+            });
+        });
+
+        let outAfter = 0;
+        expenses.forEach(function (e) {
+            if (after(e.date)) outAfter += toCents(e.amount);
+        });
+        journalLog.forEach(function (l) {
+            if (l.account === 'Cash' && typeof l.date === 'string' && l.date.slice(0, 10) > iso) {
+                outAfter += toCents(l.credit) - toCents(l.debit);
+            }
+        });
+
+        return now - inAfter + outAfter;
     }
 
     // =================================================================
@@ -440,13 +542,20 @@
     }
     function writeCloses(list) { localStorage.setItem(LS_CLOSE, JSON.stringify(list)); }
 
+    // The day being closed (defaults to today)
+    function chosenCloseDate() {
+        const el = document.getElementById('x-close-date');
+        const v = el ? el.value : '';
+        return X_ISO_DAY.test(v) ? v : todayISO();
+    }
+
     function updateLiveDiff() {
         const live = document.getElementById('x-close-live');
         const input = document.getElementById('x-close-counted');
         if (!live || !input) return;
         const v = parseFloat(input.value);
         if (openingCashCents === null || !(v >= 0)) { live.textContent = ''; return; }
-        const diffC = toCents(v) - cashOnHandCents();
+        const diffC = toCents(v) - cashOnHandCentsAt(chosenCloseDate());
         live.className = 'x-live ' + (diffC === 0 ? 'x-pos' : 'x-neg');
         live.textContent = diffC === 0 ? '✅ Waa sax' : '⚠️ Farqi: ' + fmtDiff(diffC);
     }
@@ -468,14 +577,18 @@
             return;
         }
 
-        const date = todayISO();
+        const date = chosenCloseDate();
+        if (date > todayISO()) {
+            await uiAlert('⚠️ Digniin!\n\nTaariikhda xiritaanka ma noqon karto mustaqbal.');
+            return;
+        }
         const countedC = toCents(counted);
-        const expectedC = cashOnHandCents();
+        const expectedC = cashOnHandCentsAt(date);       // cash as it was at the end of that day
 
         const existing = readCloses().find(function (c) { return c.date === date; });
         if (existing) {
             const ok = await uiConfirm(
-                'Maanta hore ayaa loo xiray.\n\nLa tiriyay: ' + money(existing.countedCents) +
+                'Taariikhdan (' + date + ') hore ayaa loo xiray.\n\nLa tiriyay: ' + money(existing.countedCents) +
                 '\n\nMa beddelaysaa xiritaankii hore?',
                 { okText: 'Beddel', cancelText: 'Jooji' }
             );
@@ -494,10 +607,12 @@
         writeCloses(readCloses().filter(function (c) { return c.date !== date; }).concat([rec]));
 
         document.getElementById('x-close-form').reset();
+        document.getElementById('x-close-date').value = todayISO();
         renderClose();
 
         if (rec.diffCents !== 0) {
-            await uiAlert('⚠️ Farqi ayaa jira!\n\nLa tiriyay: ' + money(countedC) +
+            await uiAlert('⚠️ Farqi ayaa jira!\n\nTaariikh: ' + date +
+                '\nLa tiriyay: ' + money(countedC) +
                 '\nLa filayay: ' + moneySigned(expectedC) +
                 '\nFarqi: ' + fmtDiff(rec.diffCents));
         }
@@ -519,11 +634,18 @@
     function renderClose() {
         const exp = document.getElementById('x-close-expected');
         const listEl = document.getElementById('x-close-list');
+        const dateEl = document.getElementById('x-close-date');
         if (!exp || !listEl) return;
+        if (dateEl) {
+            dateEl.max = todayISO();
+            if (!dateEl.value) dateEl.value = todayISO();
+        }
 
+        const day = chosenCloseDate();
         exp.textContent = (openingCashCents === null)
             ? '⚠️ Cash-ka weli lama dejin. Taabo "✏️ Hagaaji" si aad u dejiso.'
-            : 'Cash la filayo hadda: ' + moneySigned(cashOnHandCents());
+            : (day === todayISO() ? 'Cash la filayo hadda: ' : 'Cash la filayay dhammaadkii ' + day + ': ') +
+                moneySigned(cashOnHandCentsAt(day));
         updateLiveDiff();
 
         const all = readCloses().slice().sort(function (x, y) {
@@ -568,7 +690,9 @@
                 '<h2><span>🧾 Xiritaanka Maalinta (Daily Close)</span></h2>' +
                 '<form id="x-close-form">' +
                     '<p class="hint info" id="x-close-expected"></p>' +
-                    '<div><label>Cash-ka aad tiriyay maanta (USD)</label>' +
+                    '<div><label>Taariikhda xiritaanka</label>' +
+                        '<input type="date" id="x-close-date"></div>' +
+                    '<div><label>Cash-ka aad tiriyay (USD)</label>' +
                         '<input type="number" step="any" min="0" id="x-close-counted" placeholder="0.00" required>' +
                         '<p class="x-live" id="x-close-live"></p></div>' +
                     '<div><label>Faahfaahin (ikhtiyaari)</label>' +
@@ -578,6 +702,11 @@
                 '<p class="jr-head">Xiritaannadii hore</p>' +
                 '<div id="x-close-list"></div>');
             placeCard(card);
+
+            const closeDateEl = card.querySelector('#x-close-date');
+            closeDateEl.max = todayISO();                  // no future days
+            closeDateEl.value = todayISO();                // default = today
+            closeDateEl.addEventListener('change', renderClose);   // redraws "cash la filayay" + live difference
 
             card.querySelector('#x-close-form').addEventListener('submit', submitClose);
             card.querySelector('#x-close-counted').addEventListener('input', updateLiveDiff);
@@ -614,6 +743,7 @@
     // =================================================================
 
     function renderAll() {
+        safe('cash-archive', syncCashArchive);      // keep the sales archive up to date before drawing
         features.forEach(function (f) { safe(f.name + ':render', f.render); });
     }
 
