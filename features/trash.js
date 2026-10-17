@@ -2,9 +2,6 @@
  =====================================================================
   features/trash.js — Recycle Bin (Qashinka) for "Xisaabta Ganacsigaaga"
  =====================================================================
-  This file catches anything deleted from the app (debts, purchases, 
-  or vendor payments) and saves it to a Recycle Bin so it can be restored.
- =====================================================================
 */
 (function () {
     'use strict';
@@ -26,7 +23,8 @@
         previousState = {
             customers: JSON.parse(JSON.stringify(customers)),
             purchases: JSON.parse(JSON.stringify(purchases)),
-            vendorPayments: JSON.parse(JSON.stringify(vendorPayments))
+            vendorPayments: JSON.parse(JSON.stringify(vendorPayments)),
+            cashSales: JSON.parse(JSON.stringify(cashSales)) // Watch sales
         };
     }
 
@@ -41,13 +39,11 @@
 
         prevCustKeys.forEach(key => {
             if (!liveCustKeys.includes(key)) {
-                // Entire customer deleted (e.g., Settle Debt)
                 const cust = previousState.customers[key];
                 (cust.items || []).forEach(item => {
                     newItems.push({ type: 'deyn', data: Object.assign({}, item, { customerName: cust.name }), date: new Date().toISOString() });
                 });
             } else {
-                // Individual item deleted
                 const prevItems = previousState.customers[key].items || [];
                 const liveItems = customers[key].items || [];
                 prevItems.forEach(pItem => {
@@ -69,6 +65,13 @@
         (previousState.vendorPayments || []).forEach(vItem => {
             if (!vendorPayments.find(lItem => lItem.id === vItem.id)) {
                 newItems.push({ type: 'bixin', data: vItem, date: new Date().toISOString() });
+            }
+        });
+
+        // 4. Check Cash Sales (Iibka)
+        (previousState.cashSales || []).forEach(cItem => {
+            if (!cashSales.find(lItem => lItem.id === cItem.id)) {
+                newItems.push({ type: 'iib', data: cItem, date: new Date().toISOString() });
             }
         });
 
@@ -106,22 +109,30 @@
         trash.forEach((t, index) => {
             let name = '';
             let amount = '';
+            let badgeColor = '#64748b'; // default gray
             
             if (t.type === 'deyn') {
-                name = `Deyn: ${t.data.customerName || 'Macmiil'} - ${t.data.desc}`;
+                name = `📒 Deyn: ${t.data.customerName || 'Macmiil'} - ${t.data.desc}`;
                 amount = money(toCents(t.data.amount));
+                badgeColor = '#e11d48'; // Red for debt
+            } else if (t.type === 'iib') {
+                name = `🛒 Iib: ${t.data.customer} - ${t.data.description}`;
+                amount = money(toCents(t.data.amount));
+                badgeColor = '#059669'; // Green for sales
             } else if (t.type === 'iibsasho') {
-                name = `Iibsasho: ${t.data.item} (${t.data.supplier})`;
+                name = `📥 Iibsasho: ${t.data.item} (${t.data.supplier})`;
                 amount = money(toCents(t.data.total));
+                badgeColor = '#4c1d95'; // Purple for purchases
             } else if (t.type === 'bixin') {
-                name = `Bixin: ${t.data.vendor}`;
+                name = `💵 Bixin: ${t.data.vendor}`;
                 amount = money(toCents(t.data.amount));
+                badgeColor = '#0369a1'; // Blue for payments
             }
 
             listHtml += `
                 <div class="ap-row" style="background:#f8fafc; border-color:#cbd5e1;">
                     <div>
-                        <div class="n" style="color:#334155;">${escapeHtml(name)}</div>
+                        <div class="n" style="color:${badgeColor}; white-space: normal; line-height: 1.2;">${escapeHtml(name)}</div>
                         <div class="s">${amount} • ${t.date.slice(0, 10)}</div>
                     </div>
                     <button type="button" class="mini-btn" onclick="window.restoreTrashItem(${index})">↩️ Soo Celi</button>
@@ -156,6 +167,10 @@
             delete cleanItem.customerName;
             customers[key].items.push(cleanItem);
         } 
+        else if (item.type === 'iib') {
+            cashSales.push(item.data);
+            totalRevenue += item.data.amount; // Put revenue back
+        }
         else if (item.type === 'iibsasho') {
             purchases.push(item.data);
         } 
@@ -185,12 +200,6 @@
 
     // --- INIT ---
     function init() {
-        // Add custom CSS for the card
-        const style = document.createElement('style');
-        style.textContent = `.ap-row .n { white-space: normal !important; line-height: 1.2; }`;
-        document.head.appendChild(style);
-
-        // Create the card
         const card = document.createElement('div');
         card.className = 'card';
         card.id = 'trash-card';
