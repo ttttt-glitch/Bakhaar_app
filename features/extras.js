@@ -2,25 +2,6 @@
  =====================================================================
   features/extras.js  —  Extra features for "Xisaabta Ganacsigaaga"
  =====================================================================
-
-  HOW TO ADD A NEW FEATURE (read this first)
-
-  1. Go to the section "FEATURES" below and copy the template at its end.
-  2. Give your feature a unique name and fill in two functions:
-       init()    runs ONCE when the page loads: build your HTML, add listeners.
-       render()  runs EVERY time the app refreshes (after updateUI): redraw numbers.
-  3. Register it:   register('my-feature', { init: ..., render: ... });
-  4. Use the helpers in "SHARED HELPERS": injectStyle, makeCard, placeCard,
-     parseAppDate, activeSubscription, newId.
-  5. Everything the user can see must be written in Somali.
-  6. Never redeclare an app global (money, toCents, purchases, ...). Just use them.
-  7. A feature that throws an error is skipped: it can not break the app
-     or the other features.
-
-  How it hooks in: the app calls updateUI() after every change. In "BOOT" at
-  the bottom we wrap updateUI once, so every feature redraws with the app.
-  index.html is not edited except for the one <script> tag that loads this file.
- =====================================================================
 */
 (function () {
     'use strict';
@@ -75,9 +56,6 @@
     }
 
     // ----- Reading the dates the app stores -----
-    // Many records store the date as the phone's local text (toLocaleDateString),
-    // e.g. "10/1/2026" or "01/10/2026". We learn the phone's order (M/D/Y, D/M/Y
-    // or Y/M/D) once and use it to read those strings back.
     function toAscii(s) {
         return String(s)
             .replace(/[\u0660-\u0669]/g, function (c) { return String(c.charCodeAt(0) - 0x0660); })
@@ -101,7 +79,6 @@
         return dateOrder;
     }
 
-    // Returns a Date, or null when the text can not be read
     function parseAppDate(str) {
         if (!str) return null;
         const s = toAscii(str).trim();
@@ -204,10 +181,21 @@
         return st;
     }
 
-    // All-time figures, taken from the same sources as the existing P&L card
+    // All-time figures, taken from the archive so "Tirtir Iibka" doesn't reset it to 0
     function allTimeStats() {
-        const revC = (typeof totalRevenue === 'number') ? toCents(totalRevenue) : 0;
-        const cogsC = (typeof computeCogsCents === 'function') ? computeCogsCents() : 0;
+        // BUG FIX: Read from archive to survive "Tirtir Iibka"
+        let revC = 0;
+        let cogsC = 0;
+        if (typeof allCashSalesForReports === 'function') {
+            allCashSalesForReports().forEach(tx => { 
+                revC += toCents(tx.amount); 
+                cogsC += costOf(tx);
+            });
+        } else {
+            revC = (typeof totalRevenue === 'number') ? toCents(totalRevenue) : 0;
+            cogsC = (typeof computeCogsCents === 'function') ? computeCogsCents() : 0;
+        }
+        
         let opexC = 0, payC = 0, purchasesC = 0;
         expenses.forEach(function (e) {
             if (e.category === 'salary') payC += toCents(e.amount); else opexC += toCents(e.amount);
@@ -218,10 +206,6 @@
     }
 
     // ----- Cash-sales archive (survives "Tirtir Iibka") -----
-    // Every cash sale the app has ever had is copied here. The app's own list (cashSales)
-    // is emptied by "Tirtir Iibka"; this archive is never emptied.
-    // Extra fields on each copy:  _live = still in cashSales at the last sync
-    //                             _carry = cashCarryCents when it was last seen live
     const LS_ARCHIVE = 'ganacsi_cash_archive';
     const X_ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -242,8 +226,6 @@
         const gone = archive.filter(function (r) { return r._live && !liveIds.has(r.id); });
         gone.forEach(function (r) {
             r._live = false;
-            // The Monthly Card is a permanent historical record.
-            // We no longer void them here, so deletions don't affect the monthly stats.
             changed = true;
         });
 
@@ -267,7 +249,11 @@
     function allCashSalesForReports() {
         const out = [];
         const seen = new Set();
-        cashSales.forEach(function (t) { seen.add(t.id); out.push(t); });
+        cashSales.forEach(function (t) { 
+            if (seen.has(t.id)) return; // BUG FIX: Prevent duplicate live sales from counting twice
+            seen.add(t.id); 
+            out.push(t); 
+        });
         readCashArchive().forEach(function (r) {
             if (seen.has(r.id)) return;
             seen.add(r.id);
@@ -277,13 +263,6 @@
     }
 
     // ----- Cash on hand at the END of a past day -----
-    // Starts from today's exact figure and rolls back everything dated AFTER `iso`:
-    //   cash(iso) = cashOnHandCents()
-    //             - cash sales after iso          (live + archive)
-    //             - debt collections after iso    (by date of last payment)
-    //             + expenses after iso
-    //             + cash paid to suppliers after iso (journal lines on Cash)
-    // For today it returns exactly cashOnHandCents().
     function cashOnHandCentsAt(iso) {
         const now = cashOnHandCents();
         if (!X_ISO_DAY.test(iso) || iso >= todayISO()) return now;
@@ -317,7 +296,7 @@
     }
 
     // =================================================================
-    //  STYLES (all classes start with "x-" so they can not clash with the app)
+    //  STYLES
     // =================================================================
 
     injectStyle('x-extras-style', [
@@ -346,7 +325,7 @@
     // =================================================================
 
     // -----------------------------------------------------------------
-    //  FEATURE 1: Monthly summary card (Xisaab tab)
+    //  FEATURE 1: Monthly summary card
     // -----------------------------------------------------------------
     register('monthly-summary', {
         init: function () {
@@ -474,27 +453,23 @@
         try {
             const text = buildSummaryText();
 
-            // 1. Phone share sheet (WhatsApp, copy, save ...)
             if (navigator.share) {
                 try {
                     await navigator.share({ title: 'Xisaabta Ganacsigaaga', text: text });
                     return;
                 } catch (err) {
-                    if (err && err.name === 'AbortError') return;     // user closed the sheet
-                    // any other error: fall through to copying
+                    if (err && err.name === 'AbortError') return; 
                 }
             }
 
-            // 2. Clipboard
             let copied = false;
             try {
                 if (navigator.clipboard && navigator.clipboard.writeText) {
                     await navigator.clipboard.writeText(text);
                     copied = true;
                 }
-            } catch (err) { /* try the old way */ }
+            } catch (err) { }
 
-            // 3. Old copy method
             if (!copied) copied = legacyCopy(text);
 
             if (copied) {
@@ -525,21 +500,19 @@
                 placeCard(card);
             }
         },
-        render: function () { /* nothing to redraw: the text is built when the button is tapped */ }
+        render: function () { }
     });
 
     // -----------------------------------------------------------------
     //  FEATURE 3: Daily close (cash counted vs cash expected)
     // -----------------------------------------------------------------
     const LS_CLOSE = 'ganacsi_daily_close';
-    // [{ id, date:'YYYY-MM-DD', time, countedCents, expectedCents, diffCents, note }]
     function readCloses() {
         const v = loadJSON(LS_CLOSE, []);
         return Array.isArray(v) ? v : [];
     }
     function writeCloses(list) { localStorage.setItem(LS_CLOSE, JSON.stringify(list)); }
 
-    // The day being closed (defaults to today)
     function chosenCloseDate() {
         const el = document.getElementById('x-close-date');
         const v = el ? el.value : '';
@@ -580,12 +553,12 @@
             return;
         }
         const countedC = toCents(counted);
-        const expectedC = cashOnHandCentsAt(date);       // cash as it was at the end of that day
+        const expectedC = cashOnHandCentsAt(date);
 
         const existing = readCloses().find(function (c) { return c.date === date; });
         if (existing) {
             const ok = await uiConfirm(
-                'Taariikhdan (' + date + ') hore ayaa loo xiray.\n\nLa tiriyay: ' + money(existing.countedCents) +
+                'Taariikhdan (' + date + ') hore aaa loo xiray.\n\nLa tiriyay: ' + money(existing.countedCents) +
                 '\n\nMa beddelaysaa xiritaankii hore?',
                 { okText: 'Beddel', cancelText: 'Jooji' }
             );
@@ -701,9 +674,9 @@
             placeCard(card);
 
             const closeDateEl = card.querySelector('#x-close-date');
-            closeDateEl.max = todayISO();                  // no future days
-            closeDateEl.value = todayISO();                // default = today
-            closeDateEl.addEventListener('change', renderClose);   // redraws "cash la filayay" + live difference
+            closeDateEl.max = todayISO();
+            closeDateEl.value = todayISO();
+            closeDateEl.addEventListener('change', renderClose);
 
             card.querySelector('#x-close-form').addEventListener('submit', submitClose);
             card.querySelector('#x-close-counted').addEventListener('input', updateLiveDiff);
@@ -712,7 +685,6 @@
                 if (b) deleteClose(b.getAttribute('data-x-del-close'));
             });
 
-            // Expired subscription: no new closes (viewing and deleting still work)
             if (!activeSubscription()) {
                 card.querySelectorAll('#x-close-form input').forEach(function (el) { el.disabled = true; });
                 const btn = card.querySelector('#x-close-save');
@@ -723,28 +695,15 @@
         render: renderClose
     });
 
-    // -----------------------------------------------------------------
-    //  TEMPLATE FOR A NEW FEATURE (copy, rename, fill in, keep above BOOT)
-    // -----------------------------------------------------------------
-    //  register('my-feature', {
-    //      init: function () {
-    //          placeCard(makeCard('x-my-card', '<h2><span>🆕 Cinwaan</span></h2><div id="x-my-body"></div>'));
-    //      },
-    //      render: function () {
-    //          document.getElementById('x-my-body').textContent = money(toCents(1));
-    //      }
-    //  });
-
     // =================================================================
     //  BOOT  (keep at the bottom)
     // =================================================================
 
     function renderAll() {
-        safe('cash-archive', syncCashArchive);      // keep the sales archive up to date before drawing
+        safe('cash-archive', syncCashArchive);
         features.forEach(function (f) { safe(f.name + ':render', f.render); });
     }
 
-    // Wrap updateUI once so every feature redraws whenever the app refreshes
     function wrapUpdateUI() {
         if (typeof updateUI !== 'function' || updateUI.__xExtras) return;
         const original = updateUI;
@@ -760,7 +719,7 @@
     function boot() {
         features.forEach(function (f) { safe(f.name + ':init', f.init); });
         wrapUpdateUI();
-        renderAll();            // the app already drew once before this file loaded
+        renderAll();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
