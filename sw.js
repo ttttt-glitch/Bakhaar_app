@@ -14,6 +14,7 @@ const OPTIONAL_ASSETS = [
   '/Bakhaar_app/icon-512.png',
   '/Bakhaar_app/features/extras.js'
    '/Bakhaar_app/features/backup.js'
+  '/Bakhaar_app/features/trash.js'
 ];
 
 self.addEventListener('install', (event) => {
