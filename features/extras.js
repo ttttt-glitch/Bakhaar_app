@@ -222,7 +222,6 @@
     // is emptied by "Tirtir Iibka"; this archive is never emptied.
     // Extra fields on each copy:  _live = still in cashSales at the last sync
     //                             _carry = cashCarryCents when it was last seen live
-    //                             _void = deleted ONE BY ONE as a mistaken sale (stops counting)
     const LS_ARCHIVE = 'ganacsi_cash_archive';
     const X_ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -241,12 +240,10 @@
 
         // 1. Records that left cashSales since the last sync
         const gone = archive.filter(function (r) { return r._live && !liveIds.has(r.id); });
-        // "Tirtir Iibka" raises cashCarryCents (and removes many at once);
-        // deleting a single mistaken sale does neither.
-        const cleared = gone.length >= 2 || gone.some(function (r) { return carryNow > (r._carry || 0); });
         gone.forEach(function (r) {
             r._live = false;
-            if (!cleared) r._void = true;
+            // The Monthly Card is a permanent historical record.
+            // We no longer void them here, so deletions don't affect the monthly stats.
             changed = true;
         });
 
@@ -266,13 +263,13 @@
         if (changed) writeCashArchive(archive);
     }
 
-    // Live sales + archived sales, each sale once (by id), mistaken deletions left out
+    // Live sales + archived sales, each sale once (by id)
     function allCashSalesForReports() {
         const out = [];
         const seen = new Set();
         cashSales.forEach(function (t) { seen.add(t.id); out.push(t); });
         readCashArchive().forEach(function (r) {
-            if (r._void || seen.has(r.id)) return;
+            if (seen.has(r.id)) return;
             seen.add(r.id);
             out.push(r);
         });
