@@ -18,7 +18,6 @@
 
     function newId() { return '_' + Math.random().toString(36).slice(2, 11); }
 
-    // False when the monthly subscription has expired (new records are locked)
     function activeSubscription() {
         return (typeof subscriptionActive === 'undefined') ? true : subscriptionActive;
     }
@@ -39,8 +38,6 @@
         return d;
     }
 
-    // Cards are placed on the Xisaab tab, right after the Profit & Loss card,
-    // in the order the features are registered.
     let lastPlaced = null;
     function placeCard(card) {
         const tab = document.getElementById('tab-acct');
@@ -55,7 +52,6 @@
         return true;
     }
 
-    // ----- Reading the dates the app stores -----
     function toAscii(s) {
         return String(s)
             .replace(/[\u0660-\u0669]/g, function (c) { return String(c.charCodeAt(0) - 0x0660); })
@@ -65,7 +61,7 @@
     let dateOrder = null;
     function localeOrder() {
         if (dateOrder) return dateOrder;
-        dateOrder = { m: 0, d: 1, y: 2 };               // fallback: M/D/Y
+        dateOrder = { m: 0, d: 1, y: 2 };
         try {
             const nums = (toAscii(new Date(2001, 10, 22).toLocaleDateString()).match(/\d+/g) || []).map(Number);
             if (nums.length === 3) {
@@ -75,7 +71,7 @@
                     dateOrder = { y: y, d: d, m: [0, 1, 2].find(function (i) { return i !== y && i !== d; }) };
                 }
             }
-        } catch (e) { /* keep fallback */ }
+        } catch (e) { }
         return dateOrder;
     }
 
@@ -83,7 +79,7 @@
         if (!str) return null;
         const s = toAscii(str).trim();
 
-        const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);          // YYYY-MM-DD (newer records)
+        const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
         if (iso) {
             const di = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
             return isNaN(di.getTime()) ? null : di;
@@ -102,7 +98,7 @@
             }
         }
 
-        const t = Date.parse(s);                                  // last resort: "Oct 1, 2026"
+        const t = Date.parse(s);
         return isNaN(t) ? null : new Date(t);
     }
 
@@ -111,7 +107,6 @@
         catch (e) { console.error('[extras] ' + label + ':', e); }
     }
 
-    // ----- Shared money maths used by more than one feature -----
     function costOf(rec) {
         if (typeof itemCostCents === 'function') return itemCostCents(rec) || 0;
         return (rec && typeof rec.cogs === 'number') ? rec.cogs : 0;
@@ -130,22 +125,55 @@
     }
     function fmtDiff(c) { return (c > 0 ? '+' : '') + moneySigned(c); }
 
-    // Totals for one calendar month. Same definition of profit as the app's own P&L:
-    // Net = Sales - (COGS + Expenses + Payroll). Purchases are shown but not subtracted
-    // (they become cost only when the goods are sold, through COGS).
+    // ----- Cash on hand calculation (BUG FIX APPLIED) -----
+    function expensesTotalCents() {
+        return expenses.reduce(function (s, e) { return s + toCents(e.amount); }, 0);
+    }
+
+    function cashFlowParts() {
+        const baseC = openingCashCents || 0;
+        
+        // BUG FIX: Read directly from the Archive to prevent double-counting
+        let inC = 0;
+        if (typeof allCashSalesForReports === 'function') {
+            allCashSalesForReports().forEach(tx => { inC += toCents(tx.amount); });
+        } else {
+            inC = toCents(totalRevenue) + cashCarryCents; 
+        }
+
+        const expC = expensesTotalCents();                    
+        const supplierC = journalTotals().cashPaidNet;        
+        return { baseC, inC, expC, supplierC, cashC: baseC + inC - expC - supplierC };
+    }
+
+    function cashOnHandCents() { return cashFlowParts().cashC; }
+
+    async function confirmCashAvailable(outC, what) {
+        if (openingCashCents === null) return true;
+        const cashC = cashOnHandCents();
+        if (outC <= cashC) return true;
+
+        const msg = '⚠️ Cash-ka kuma filna!\n\nCash hadda: ' + moneySigned(cashC) +
+            '\n' + what + ': ' + money(outC) +
+            '\nKadib waxaa hadhi doona: ' + moneySigned(cashC - outC);
+
+        if (typeof BLOCK_PAYMENT_IF_NO_CASH !== 'undefined' && BLOCK_PAYMENT_IF_NO_CASH) {
+            await uiAlert(msg + '\n\nBixinta lama kaydin.');
+            return false;
+        }
+        return await uiConfirm(msg + '\n\nWeli ma sii wadaysaa?', { danger: true, okText: 'Haa, sii wad', cancelText: 'Jooji' });
+    }
+
     function monthStats(year, monthIndex) {
         const st = { salesC: 0, cogsC: 0, purchasesC: 0, opexC: 0, payC: 0, netC: 0, skipped: 0, byCat: {} };
         function inMonth(d) { return !!d && d.getFullYear() === year && d.getMonth() === monthIndex; }
 
-        // Cash sales (live + archived, so "Tirtir Iibka" does not erase them)
         allCashSalesForReports().forEach(function (tx) {
             const d = parseAppDate(tx.date);
             if (!d) { st.skipped++; return; }
             if (inMonth(d)) { st.salesC += toCents(tx.amount); st.cogsC += costOf(tx); }
         });
 
-        // Customer debts: money collected counts as sales (in the month of the last payment);
-        // cost of goods counts when the goods left the shop (or when paid, per app setting)
         const atSale = costAtSale();
         Object.values(customers).forEach(function (c) {
             (c.items || []).forEach(function (item) {
@@ -159,7 +187,6 @@
             });
         });
 
-        // Expenses and payroll
         expenses.forEach(function (e) {
             const d = parseAppDate(e.date);
             if (!d) { st.skipped++; return; }
@@ -169,7 +196,6 @@
             st.byCat[e.category] = (st.byCat[e.category] || 0) + c;
         });
 
-        // Purchases (opening stock is not a purchase)
         purchases.forEach(function (p) {
             if (p.opening) return;
             const d = parseAppDate(p.date);
@@ -181,9 +207,7 @@
         return st;
     }
 
-    // All-time figures, taken from the archive so "Tirtir Iibka" doesn't reset it to 0
     function allTimeStats() {
-        // BUG FIX: Read from archive to survive "Tirtir Iibka"
         let revC = 0;
         let cogsC = 0;
         if (typeof allCashSalesForReports === 'function') {
@@ -205,7 +229,6 @@
                  netC: revC - (cogsC + opexC + payC) };
     }
 
-    // ----- Cash-sales archive (survives "Tirtir Iibka") -----
     const LS_ARCHIVE = 'ganacsi_cash_archive';
     const X_ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -222,14 +245,12 @@
         const carryNow = (typeof cashCarryCents === 'number') ? cashCarryCents : 0;
         let changed = false;
 
-        // 1. Records that left cashSales since the last sync
         const gone = archive.filter(function (r) { return r._live && !liveIds.has(r.id); });
         gone.forEach(function (r) {
             r._live = false;
             changed = true;
         });
 
-        // 2. New records are appended; live ones are refreshed
         cashSales.forEach(function (tx) {
             const r = byId.get(tx.id);
             if (!r) {
@@ -245,12 +266,11 @@
         if (changed) writeCashArchive(archive);
     }
 
-    // Live sales + archived sales, each sale once (by id)
     function allCashSalesForReports() {
         const out = [];
         const seen = new Set();
         cashSales.forEach(function (t) { 
-            if (seen.has(t.id)) return; // BUG FIX: Prevent duplicate live sales from counting twice
+            if (seen.has(t.id)) return;
             seen.add(t.id); 
             out.push(t); 
         });
@@ -262,7 +282,6 @@
         return out;
     }
 
-    // ----- Cash on hand at the END of a past day -----
     function cashOnHandCentsAt(iso) {
         const now = cashOnHandCents();
         if (!X_ISO_DAY.test(iso) || iso >= todayISO()) return now;
@@ -324,9 +343,6 @@
     //  FEATURES
     // =================================================================
 
-    // -----------------------------------------------------------------
-    //  FEATURE 1: Monthly summary card
-    // -----------------------------------------------------------------
     register('monthly-summary', {
         init: function () {
             placeCard(makeCard('x-month-card',
@@ -364,9 +380,6 @@
         }
     });
 
-    // -----------------------------------------------------------------
-    //  FEATURE 2: Export / share button
-    // -----------------------------------------------------------------
     function buildSummaryText() {
         const now = new Date();
         const m = monthStats(now.getFullYear(), now.getMonth());
@@ -503,9 +516,6 @@
         render: function () { }
     });
 
-    // -----------------------------------------------------------------
-    //  FEATURE 3: Daily close (cash counted vs cash expected)
-    // -----------------------------------------------------------------
     const LS_CLOSE = 'ganacsi_daily_close';
     function readCloses() {
         const v = loadJSON(LS_CLOSE, []);
@@ -558,7 +568,7 @@
         const existing = readCloses().find(function (c) { return c.date === date; });
         if (existing) {
             const ok = await uiConfirm(
-                'Taariikhdan (' + date + ') hore aaa loo xiray.\n\nLa tiriyay: ' + money(existing.countedCents) +
+                'Taariikhdan (' + date + ') hore ayaa loo xiray.\n\nLa tiriyay: ' + money(existing.countedCents) +
                 '\n\nMa beddelaysaa xiritaankii hore?',
                 { okText: 'Beddel', cancelText: 'Jooji' }
             );
@@ -696,7 +706,7 @@
     });
 
     // =================================================================
-    //  BOOT  (keep at the bottom)
+    //  BOOT
     // =================================================================
 
     function renderAll() {
