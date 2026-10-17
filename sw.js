@@ -1,5 +1,5 @@
 // Service Worker for Xisaabta Ganacsigaaga
-const CACHE_NAME = 'bakhaar-cache-v66';
+const CACHE_NAME = 'bakhaar-cache-v67';
 
 // Must exist or the app will not install offline
 const CORE_ASSETS = [
@@ -13,6 +13,7 @@ const OPTIONAL_ASSETS = [
   '/Bakhaar_app/icon-192.png',
   '/Bakhaar_app/icon-512.png',
   '/Bakhaar_app/features/extras.js'
+   '/Bakhaar_app/features/backup.js'
 ];
 
 self.addEventListener('install', (event) => {
