@@ -125,7 +125,7 @@
     }
     function fmtDiff(c) { return (c > 0 ? '+' : '') + moneySigned(c); }
 
-    // ----- Cash on hand calculation (BUG FIX APPLIED) -----
+    // ----- Cash on hand calculation (REVERTED TO LIVE SALES ONLY) -----
     function expensesTotalCents() {
         return expenses.reduce(function (s, e) { return s + toCents(e.amount); }, 0);
     }
@@ -133,13 +133,9 @@
     function cashFlowParts() {
         const baseC = openingCashCents || 0;
         
-        // BUG FIX: Read directly from the Archive to prevent double-counting
-        let inC = 0;
-        if (typeof allCashSalesForReports === 'function') {
-            allCashSalesForReports().forEach(tx => { inC += toCents(tx.amount); });
-        } else {
-            inC = toCents(totalRevenue) + cashCarryCents; 
-        }
+        // REVERTED: Use totalRevenue (Live Sales) + cashCarryCents (Cleared Sales)
+        // This prevents ghost data in the archive from inflating the cash on hand.
+        const inC = toCents(totalRevenue) + cashCarryCents;   
 
         const expC = expensesTotalCents();                    
         const supplierC = journalTotals().cashPaidNet;        
@@ -232,10 +228,27 @@
     const LS_ARCHIVE = 'ganacsi_cash_archive';
     const X_ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
+    // SELF-HEALING ARCHIVE: Destroys duplicate ghosts automatically
     function readCashArchive() {
         const v = loadJSON(LS_ARCHIVE, []);
-        return Array.isArray(v) ? v : [];
+        if (!Array.isArray(v)) return [];
+        
+        const unique = [];
+        const seen = new Set();
+        v.forEach(function(item) {
+            if (item && item.id && !seen.has(item.id)) {
+                seen.add(item.id);
+                unique.push(item);
+            }
+        });
+        
+        // If duplicates were found, overwrite the polluted localStorage
+        if (unique.length !== v.length) {
+            writeCashArchive(unique); 
+        }
+        return unique;
     }
+    
     function writeCashArchive(list) { localStorage.setItem(LS_ARCHIVE, JSON.stringify(list)); }
 
     function syncCashArchive() {
@@ -269,16 +282,19 @@
     function allCashSalesForReports() {
         const out = [];
         const seen = new Set();
+        
         cashSales.forEach(function (t) { 
             if (seen.has(t.id)) return;
             seen.add(t.id); 
             out.push(t); 
         });
+
         readCashArchive().forEach(function (r) {
             if (seen.has(r.id)) return;
             seen.add(r.id);
             out.push(r);
         });
+        
         return out;
     }
 
