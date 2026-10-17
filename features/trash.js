@@ -71,7 +71,12 @@
         // 4. Check Cash Sales (Iibka)
         (previousState.cashSales || []).forEach(cItem => {
             if (!cashSales.find(lItem => lItem.id === cItem.id)) {
-                newItems.push({ type: 'iib', data: cItem, date: new Date().toISOString() });
+                // BUG FIX: Ensure it doesn't already exist in the trash or the newItems array
+                const alreadyInTrash = getTrash().some(t => t.type === 'iib' && t.data.id === cItem.id) ||
+                                        newItems.some(t => t.type === 'iib' && t.data.id === cItem.id);
+                if (!alreadyInTrash) {
+                    newItems.push({ type: 'iib', data: cItem, date: new Date().toISOString() });
+                }
             }
         });
 
@@ -168,8 +173,11 @@
             customers[key].items.push(cleanItem);
         } 
         else if (item.type === 'iib') {
-            cashSales.push(item.data);
-            totalRevenue += item.data.amount; // Put revenue back
+            // BUG FIX: Only add it if it doesn't already exist!
+            if (!cashSales.find(s => s.id === item.data.id)) {
+                cashSales.push(item.data);
+                totalRevenue += item.data.amount; // Put revenue back
+            }
         }
         else if (item.type === 'iibsasho') {
             purchases.push(item.data);
