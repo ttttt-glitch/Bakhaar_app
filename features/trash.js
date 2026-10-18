@@ -154,126 +154,123 @@
         `;
     }
 
-    // --- ACTIONS ---
-    window.restoreTrashItem = async function (index) {
-        const trash = getTrash().slice().reverse();
-        const item = trash[index];
+    );
+// --- ACTIONS ---
+window.restoreTrashItem = async function (index) {
+    const trash = getTrash().slice().reverse();
+    const item = trash[index];
 
-        if (!item || !item.data) return;
+    if (!item || !item.data) return;
 
-        const ok = await uiConfirm(
-            'Ma rabtaa inaad soo celiso xogtan?',
-            {
-                okText: 'Soo Celi',
-                cancelText: 'Jooji'
-            }
+    const ok = await uiConfirm(
+        'Ma rabtaa inaad soo celiso xogtan?',
+        {
+            okText: 'Soo Celi',
+            cancelText: 'Jooji'
+        }
+    );
+
+    if (!ok) return;
+
+    const data = item.data;
+    let restored = false;
+
+    // Prevent duplicate IDs, including IDs represented as strings/numbers.
+    function hasExistingId(array, id) {
+        if (!Array.isArray(array) || id == null) return false;
+
+        return array.some(entry =>
+            entry &&
+            entry.id != null &&
+            String(entry.id) === String(id)
         );
+    }
 
-        if (!ok) return;
+    // 1. Restore customer debt.
+    if (item.type === 'deyn') {
+        const customerName = data.customerName || 'Macmiil';
+        const key = normalize(customerName);
 
-        const data = item.data;
-        let restored = false;
-
-        // Helper: safely check whether an item already exists by ID.
-        function hasExistingId(array, id) {
-            if (!Array.isArray(array) || id == null) return false;
-
-            return array.some(existing =>
-                existing &&
-                existing.id != null &&
-                String(existing.id) === String(id)
-            );
+        if (!customers[key]) {
+            customers[key] = {
+                name: customerName,
+                items: []
+            };
         }
 
-        // Helper: safely calculate revenue from active cash sales.
-        function recalculateTotalRevenue() {
-            totalRevenue = (Array.isArray(cashSales) ? cashSales : [])
-                .reduce((sum, sale) => {
-                    if (!sale) return sum;
-
-                    const amount = Number(sale.amount);
-
-                    return sum + (
-                        Number.isFinite(amount) ? amount : 0
-                    );
-                }, 0);
+        if (!Array.isArray(customers[key].items)) {
+            customers[key].items = [];
         }
 
-        // 1. Restore the item to its correct array.
-        if (item.type === 'deyn') {
-            const customerName = data.customerName || 'Macmiil';
-            const key = normalize(customerName);
+        const cleanItem = { ...data };
+        delete cleanItem.customerName;
 
-            if (!customers[key]) {
-                customers[key] = {
-                    name: customerName,
-                    items: []
-                };
+        if (!hasExistingId(customers[key].items, cleanItem.id)) {
+            customers[key].items.push(cleanItem);
+            restored = true;
+        }
+    }
+
+    // 2. Restore cash sale.
+    else if (item.type === 'iib') {
+        if (!Array.isArray(cashSales)) {
+            await uiAlert('Khalad: Liiska iibka lama heli karo.');
+            return;
+        }
+
+        // Only restore the sale if its ID is not already present.
+        if (!hasExistingId(cashSales, data.id)) {
+            cashSales.push({ ...data });
+
+            // Restore the deleted sale's contribution exactly once.
+            const amount = Number(data.amount);
+
+            if (Number.isFinite(amount)) {
+                totalRevenue += amount;
             }
 
-            // Protect against malformed customer records.
-            if (!Array.isArray(customers[key].items)) {
-                customers[key].items = [];
-            }
-
-            const cleanItem = Object.assign({}, data);
-            delete cleanItem.customerName;
-
-            if (!hasExistingId(customers[key].items, cleanItem.id)) {
-                customers[key].items.push(cleanItem);
-                restored = true;
-            }
+            restored = true;
         }
+    }
 
-        else if (item.type === 'iib') {
-            // Never insert a sale whose ID already exists.
-            if (!hasExistingId(cashSales, data.id)) {
-                cashSales.push(Object.assign({}, data));
-                restored = true;
-            }
-
-            // Always derive revenue from active sales instead of
-            // incrementing it. This prevents cumulative inflation.
-            recalculateTotalRevenue();
+    // 3. Restore purchase.
+    else if (item.type === 'iibsasho') {
+        if (!hasExistingId(purchases, data.id)) {
+            purchases.push({ ...data });
+            restored = true;
         }
+    }
 
-        else if (item.type === 'iibsasho') {
-            if (!hasExistingId(purchases, data.id)) {
-                purchases.push(Object.assign({}, data));
-                restored = true;
-            }
+    // 4. Restore vendor payment.
+    else if (item.type === 'bixin') {
+        if (!hasExistingId(vendorPayments, data.id)) {
+            vendorPayments.push({ ...data });
+            restored = true;
         }
+    }
 
-        else if (item.type === 'bixin') {
-            if (!hasExistingId(vendorPayments, data.id)) {
-                vendorPayments.push(Object.assign({}, data));
-                restored = true;
-            }
-        }
+    // 5. Remove the selected item from the trash.
+    const currentTrash = getTrash();
+    const actualIndex = currentTrash.length - 1 - index;
 
-        // 2. Remove the selected item from the trash.
-        // Use the original trash array to avoid removing the wrong item.
-        const currentTrash = getTrash();
-        const actualIndex = currentTrash.length - 1 - index;
+    if (actualIndex >= 0 && actualIndex < currentTrash.length) {
+        currentTrash.splice(actualIndex, 1);
+        saveTrash(currentTrash);
+    }
 
-        if (actualIndex >= 0 && actualIndex < currentTrash.length) {
-            currentTrash.splice(actualIndex, 1);
-            saveTrash(currentTrash);
-        }
+    // 6. Persist the data and refresh the UI.
+    saveData();
+    updateUI();
 
-        // 3. Persist the updated data and refresh the UI.
-        saveData();
-        updateUI();
+    if (restored) {
+        await uiAlert('✅ Waa la soo celiyay!');
+    } else {
+        await uiAlert(
+            'Xogtan hore ayay u jirtay. Nuqul cusub lama darin.'
+        );
+    }
+};
 
-        // 4. Notify the user.
-        if (restored) {
-            await uiAlert('✅ Waa la soo celiyay!');
-        } else {
-            await uiAlert(
-                'Xogtan hore ayay u jirtay. Nuqul cusub lama darin.'
-            );
-        }
-    };
 
     window.emptyTrash = async function () {
         if (getTrash().length === 0) return;
