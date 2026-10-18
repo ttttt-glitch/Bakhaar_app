@@ -71,7 +71,6 @@
         // 4. Check Cash Sales (Iibka)
         (previousState.cashSales || []).forEach(cItem => {
             if (!cashSales.find(lItem => lItem.id === cItem.id)) {
-                // BUG FIX: Ensure it doesn't already exist in the trash or the newItems array
                 const alreadyInTrash = getTrash().some(t => t.type === 'iib' && t.data.id === cItem.id) ||
                                         newItems.some(t => t.type === 'iib' && t.data.id === cItem.id);
                 if (!alreadyInTrash) {
@@ -170,20 +169,31 @@
             if (!customers[key]) customers[key] = { name: item.data.customerName, items: [] };
             const cleanItem = Object.assign({}, item.data);
             delete cleanItem.customerName;
-            customers[key].items.push(cleanItem);
+            
+            // Only add if it doesn't already exist
+            if (!customers[key].items.find(i => i.id === cleanItem.id)) {
+                customers[key].items.push(cleanItem);
+            }
         } 
         else if (item.type === 'iib') {
-            // BUG FIX: Only add it if it doesn't already exist!
+            // Only add it back to cashSales if it doesn't already exist
             if (!cashSales.find(s => s.id === item.data.id)) {
                 cashSales.push(item.data);
-                totalRevenue += item.data.amount; // Put revenue back
+                
+                // Recalculate totalRevenue safely from the active cashSales array 
+                // instead of blindly adding to it and causing ghost inflation.
+                totalRevenue = cashSales.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
             }
         }
         else if (item.type === 'iibsasho') {
-            purchases.push(item.data);
+            if (!purchases.find(p => p.id === item.data.id)) {
+                purchases.push(item.data);
+            }
         } 
         else if (item.type === 'bixin') {
-            vendorPayments.push(item.data);
+            if (!vendorPayments.find(vp => vp.id === item.data.id)) {
+                vendorPayments.push(item.data);
+            }
         }
 
         // 2. Remove from trash
