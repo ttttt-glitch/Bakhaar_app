@@ -158,54 +158,121 @@
     window.restoreTrashItem = async function (index) {
         const trash = getTrash().slice().reverse();
         const item = trash[index];
-        if (!item) return;
 
-        const ok = await uiConfirm('Ma rabtaa inaad soo celiso xogtan?', { okText: 'Soo Celi', cancelText: 'Jooji' });
+        if (!item || !item.data) return;
+
+        const ok = await uiConfirm(
+            'Ma rabtaa inaad soo celiso xogtan?',
+            {
+                okText: 'Soo Celi',
+                cancelText: 'Jooji'
+            }
+        );
+
         if (!ok) return;
 
-        // 1. Put it back in the right array
+        const data = item.data;
+        let restored = false;
+
+        // Helper: safely check whether an item already exists by ID.
+        function hasExistingId(array, id) {
+            if (!Array.isArray(array) || id == null) return false;
+
+            return array.some(existing =>
+                existing &&
+                existing.id != null &&
+                String(existing.id) === String(id)
+            );
+        }
+
+        // Helper: safely calculate revenue from active cash sales.
+        function recalculateTotalRevenue() {
+            totalRevenue = (Array.isArray(cashSales) ? cashSales : [])
+                .reduce((sum, sale) => {
+                    if (!sale) return sum;
+
+                    const amount = Number(sale.amount);
+
+                    return sum + (
+                        Number.isFinite(amount) ? amount : 0
+                    );
+                }, 0);
+        }
+
+        // 1. Restore the item to its correct array.
         if (item.type === 'deyn') {
-            const key = normalize(item.data.customerName);
-            if (!customers[key]) customers[key] = { name: item.data.customerName, items: [] };
-            const cleanItem = Object.assign({}, item.data);
+            const customerName = data.customerName || 'Macmiil';
+            const key = normalize(customerName);
+
+            if (!customers[key]) {
+                customers[key] = {
+                    name: customerName,
+                    items: []
+                };
+            }
+
+            // Protect against malformed customer records.
+            if (!Array.isArray(customers[key].items)) {
+                customers[key].items = [];
+            }
+
+            const cleanItem = Object.assign({}, data);
             delete cleanItem.customerName;
-            
-            // Only add if it doesn't already exist
-            if (!customers[key].items.find(i => i.id === cleanItem.id)) {
+
+            if (!hasExistingId(customers[key].items, cleanItem.id)) {
                 customers[key].items.push(cleanItem);
+                restored = true;
             }
-        } 
+        }
+
         else if (item.type === 'iib') {
-            // Only add it back to cashSales if it doesn't already exist
-            if (!cashSales.find(s => s.id === item.data.id)) {
-                cashSales.push(item.data);
-                
-                // Recalculate totalRevenue safely from the active cashSales array 
-                // instead of blindly adding to it and causing ghost inflation.
-                totalRevenue = cashSales.reduce((sum, s) => sum + (parseFloat(s.amount) || 0), 0);
+            // Never insert a sale whose ID already exists.
+            if (!hasExistingId(cashSales, data.id)) {
+                cashSales.push(Object.assign({}, data));
+                restored = true;
             }
+
+            // Always derive revenue from active sales instead of
+            // incrementing it. This prevents cumulative inflation.
+            recalculateTotalRevenue();
         }
+
         else if (item.type === 'iibsasho') {
-            if (!purchases.find(p => p.id === item.data.id)) {
-                purchases.push(item.data);
-            }
-        } 
-        else if (item.type === 'bixin') {
-            if (!vendorPayments.find(vp => vp.id === item.data.id)) {
-                vendorPayments.push(item.data);
+            if (!hasExistingId(purchases, data.id)) {
+                purchases.push(Object.assign({}, data));
+                restored = true;
             }
         }
 
-        // 2. Remove from trash
-        const actualIndex = getTrash().length - 1 - index;
-        const currentTrash = getTrash();
-        currentTrash.splice(actualIndex, 1);
-        saveTrash(currentTrash);
+        else if (item.type === 'bixin') {
+            if (!hasExistingId(vendorPayments, data.id)) {
+                vendorPayments.push(Object.assign({}, data));
+                restored = true;
+            }
+        }
 
-        // 3. Save and reload
+        // 2. Remove the selected item from the trash.
+        // Use the original trash array to avoid removing the wrong item.
+        const currentTrash = getTrash();
+        const actualIndex = currentTrash.length - 1 - index;
+
+        if (actualIndex >= 0 && actualIndex < currentTrash.length) {
+            currentTrash.splice(actualIndex, 1);
+            saveTrash(currentTrash);
+        }
+
+        // 3. Persist the updated data and refresh the UI.
         saveData();
         updateUI();
-        await uiAlert('✅ Waa la soo celiyay!');
+
+        // 4. Notify the user.
+        if (restored) {
+            await uiAlert('✅ Waa la soo celiyay!');
+        } else {
+            await uiAlert(
+                'Xogtan hore ayay u jirtay. Nuqul cusub lama darin.'
+            );
+        }
     };
 
     window.emptyTrash = async function () {
