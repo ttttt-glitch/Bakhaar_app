@@ -154,7 +154,7 @@
         `;
     }
 
-    );
+    
 // --- ACTIONS ---
 window.restoreTrashItem = async function (index) {
     const trash = getTrash().slice().reverse();
