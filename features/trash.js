@@ -24,7 +24,7 @@
             customers: JSON.parse(JSON.stringify(customers)),
             purchases: JSON.parse(JSON.stringify(purchases)),
             vendorPayments: JSON.parse(JSON.stringify(vendorPayments)),
-            cashSales: JSON.parse(JSON.stringify(cashSales)) // Watch sales
+            cashSales: JSON.parse(JSON.stringify(cashSales))
         };
     }
 
@@ -113,24 +113,24 @@
         trash.forEach((t, index) => {
             let name = '';
             let amount = '';
-            let badgeColor = '#64748b'; // default gray
+            let badgeColor = '#64748b';
             
             if (t.type === 'deyn') {
                 name = `📒 Deyn: ${t.data.customerName || 'Macmiil'} - ${t.data.desc}`;
                 amount = money(toCents(t.data.amount));
-                badgeColor = '#e11d48'; // Red for debt
+                badgeColor = '#e11d48';
             } else if (t.type === 'iib') {
                 name = `🛒 Iib: ${t.data.customer} - ${t.data.description}`;
                 amount = money(toCents(t.data.amount));
-                badgeColor = '#059669'; // Green for sales
+                badgeColor = '#059669';
             } else if (t.type === 'iibsasho') {
                 name = `📥 Iibsasho: ${t.data.item} (${t.data.supplier})`;
                 amount = money(toCents(t.data.total));
-                badgeColor = '#4c1d95'; // Purple for purchases
+                badgeColor = '#4c1d95';
             } else if (t.type === 'bixin') {
                 name = `💵 Bixin: ${t.data.vendor}`;
                 amount = money(toCents(t.data.amount));
-                badgeColor = '#0369a1'; // Blue for payments
+                badgeColor = '#0369a1';
             }
 
             listHtml += `
@@ -154,123 +154,138 @@
         `;
     }
 
-    
-// --- ACTIONS ---
-window.restoreTrashItem = async function (index) {
-    const trash = getTrash().slice().reverse();
-    const item = trash[index];
+    // --- ACTIONS ---
+    window.restoreTrashItem = async function (index) {
+        const trash = getTrash().slice().reverse();
+        const item = trash[index];
 
-    if (!item || !item.data) return;
+        if (!item || !item.data) return;
 
-    const ok = await uiConfirm(
-        'Ma rabtaa inaad soo celiso xogtan?',
-        {
-            okText: 'Soo Celi',
-            cancelText: 'Jooji'
-        }
-    );
-
-    if (!ok) return;
-
-    const data = item.data;
-    let restored = false;
-
-    // Prevent duplicate IDs, including IDs represented as strings/numbers.
-    function hasExistingId(array, id) {
-        if (!Array.isArray(array) || id == null) return false;
-
-        return array.some(entry =>
-            entry &&
-            entry.id != null &&
-            String(entry.id) === String(id)
+        const ok = await uiConfirm(
+            'Ma rabtaa inaad soo celiso xogtan?',
+            {
+                okText: 'Soo Celi',
+                cancelText: 'Jooji'
+            }
         );
-    }
 
-    // 1. Restore customer debt.
-    if (item.type === 'deyn') {
-        const customerName = data.customerName || 'Macmiil';
-        const key = normalize(customerName);
+        if (!ok) return;
 
-        if (!customers[key]) {
-            customers[key] = {
-                name: customerName,
-                items: []
-            };
+        const data = item.data;
+        let restored = false;
+
+        function hasExistingId(array, id) {
+            if (!Array.isArray(array) || id == null) return false;
+
+            return array.some(entry =>
+                entry &&
+                entry.id != null &&
+                String(entry.id) === String(id)
+            );
         }
 
-        if (!Array.isArray(customers[key].items)) {
-            customers[key].items = [];
+        // Restore customer debt.
+        if (item.type === 'deyn') {
+            const customerName = data.customerName || 'Macmiil';
+            const key = normalize(customerName);
+
+            if (!customers[key]) {
+                customers[key] = {
+                    name: customerName,
+                    items: []
+                };
+            }
+
+            if (!Array.isArray(customers[key].items)) {
+                customers[key].items = [];
+            }
+
+            const cleanItem = { ...data };
+            delete cleanItem.customerName;
+
+            if (!hasExistingId(customers[key].items, cleanItem.id)) {
+                customers[key].items.push(cleanItem);
+                restored = true;
+            }
         }
 
-        const cleanItem = { ...data };
-        delete cleanItem.customerName;
+        // Restore cash sale.
+        else if (item.type === 'iib') {
+            if (!Array.isArray(cashSales)) {
+                await uiAlert('Khalad: Liiska iibka lama heli karo.');
+                return;
+            }
 
-        if (!hasExistingId(customers[key].items, cleanItem.id)) {
-            customers[key].items.push(cleanItem);
-            restored = true;
-        }
-    }
+            // Never restore a sale twice.
+            if (hasExistingId(cashSales, data.id)) {
+                await uiAlert(
+                    'Iibkan hore ayuu u jiraa. Lacag kale laguma darin.'
+                );
+                return;
+            }
 
-    // 2. Restore cash sale.
-    else if (item.type === 'iib') {
-        if (!Array.isArray(cashSales)) {
-            await uiAlert('Khalad: Liiska iibka lama heli karo.');
-            return;
-        }
-
-        // Only restore the sale if its ID is not already present.
-        if (!hasExistingId(cashSales, data.id)) {
-            cashSales.push({ ...data });
-
-            // Restore the deleted sale's contribution exactly once.
             const amount = Number(data.amount);
 
-            if (Number.isFinite(amount)) {
-                totalRevenue += amount;
+            if (!Number.isFinite(amount)) {
+                await uiAlert('Khalad: Lacagta iibka sax ma aha.');
+                return;
+            }
+
+            // Restore the original sale.
+            cashSales.push({ ...data });
+
+            // Restore its revenue contribution.
+            totalRevenue = Math.max(0, Number(totalRevenue) || 0) + amount;
+
+            // Restore inventory sold quantity when applicable.
+            if (data.stockKey && Number(data.qty) > 0) {
+                const stockItem = stock[data.stockKey];
+
+                if (stockItem) {
+                    stockItem.sold = r3(
+                        (Number(stockItem.sold) || 0) + Number(data.qty)
+                    );
+                }
             }
 
             restored = true;
         }
-    }
 
-    // 3. Restore purchase.
-    else if (item.type === 'iibsasho') {
-        if (!hasExistingId(purchases, data.id)) {
-            purchases.push({ ...data });
-            restored = true;
+        // Restore purchase.
+        else if (item.type === 'iibsasho') {
+            if (!hasExistingId(purchases, data.id)) {
+                purchases.push({ ...data });
+                restored = true;
+            }
         }
-    }
 
-    // 4. Restore vendor payment.
-    else if (item.type === 'bixin') {
-        if (!hasExistingId(vendorPayments, data.id)) {
-            vendorPayments.push({ ...data });
-            restored = true;
+        // Restore vendor payment.
+        else if (item.type === 'bixin') {
+            if (!hasExistingId(vendorPayments, data.id)) {
+                vendorPayments.push({ ...data });
+                restored = true;
+            }
         }
-    }
 
-    // 5. Remove the selected item from the trash.
-    const currentTrash = getTrash();
-    const actualIndex = currentTrash.length - 1 - index;
+        // Remove the restored item from trash.
+        const currentTrash = getTrash();
+        const actualIndex = currentTrash.length - 1 - index;
 
-    if (actualIndex >= 0 && actualIndex < currentTrash.length) {
-        currentTrash.splice(actualIndex, 1);
-        saveTrash(currentTrash);
-    }
+        if (actualIndex >= 0 && actualIndex < currentTrash.length) {
+            currentTrash.splice(actualIndex, 1);
+            saveTrash(currentTrash);
+        }
 
-    // 6. Persist the data and refresh the UI.
-    saveData();
-    updateUI();
+        // Persist and refresh.
+        saveData();
+        updateUI();
 
-    if (restored) {
-        await uiAlert('✅ Waa la soo celiyay!');
-    } else {
-        await uiAlert(
-            'Xogtan hore ayay u jirtay. Nuqul cusub lama darin.'
-        );
-    }
-};
-
+        if (restored) {
+            await uiAlert('✅ Waa la soo celiyay!');
+        } else {
+            await uiAlert('Xogtan hore ayay u jirtay.');
+        }
+    };
 
     window.emptyTrash = async function () {
         if (getTrash().length === 0) return;
