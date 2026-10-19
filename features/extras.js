@@ -367,26 +367,30 @@
         const storedRaw = localStorage.getItem('ganacsi_cash_opening');
         const storedOpening = (storedRaw === null) ? NaN : (parseInt(storedRaw, 10) || 0);
 
+        // 1. Initial Setup
         if (!Number.isFinite(storedOpening)) {
             localStorage.setItem('ganacsi_cash_opening', String(countedC));
             writeCashVariance(0);
             saveData();
             updateUI();
             await uiAlert('✅ Cash Bilow waa la dejiyay.\n\nCash Bilow: ' + money(countedC) + '\nFarqi: $0.00');
-            location.reload(); // Force page reload to show the new balance instantly
+            location.reload();
             return;
         }
 
+        // 2. Calculation
         const expectedBaseC = Math.round(Number(cashOnHandCents()) || 0);
         const previousVarianceC = readCashVariance();
         const expectedWithVarianceC = expectedBaseC + previousVarianceC;
         const diffC = countedC - expectedWithVarianceC;
 
+        // 3. Verification
         if (diffC === 0) {
             await uiAlert('✅ Waa sax!\n\nLacagta la tiriyey waxay la mid tahay lacagta la filayey.');
             return;
         }
 
+        // 4. Save Variance
         const newVarianceC = previousVarianceC + diffC;
         writeCashVariance(newVarianceC);
 
@@ -401,7 +405,7 @@
                 '\nFarqi isbiirsaday: ' + moneySigned(newVarianceC));
         }
         
-        // Force the page to reload so the main app sees the new data instantly
+        // Force page reload to show the new variance instantly
         location.reload();
     }
 
