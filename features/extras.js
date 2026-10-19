@@ -2,25 +2,6 @@
  =====================================================================
   features/extras.js  —  Extra features for "Xisaabta Ganacsigaaga"
  =====================================================================
-
-  HOW TO ADD A NEW FEATURE (read this first)
-
-  1. Go to the section "FEATURES" below and copy the template at its end.
-  2. Give your feature a unique name and fill in two functions:
-       init()    runs ONCE when the page loads: build your HTML, add listeners.
-       render()  runs EVERY time the app refreshes (after updateUI): redraw numbers.
-  3. Register it:   register('my-feature', { init: ..., render: ... });
-  4. Use the helpers in "SHARED HELPERS": injectStyle, makeCard, placeCard,
-     parseAppDate, activeSubscription, newId.
-  5. Everything the user can see must be written in Somali.
-  6. Never redeclare an app global (money, toCents, purchases, ...). Just use them.
-  7. A feature that throws an error is skipped: it can not break the app
-     or the other features.
-
-  How it hooks in: the app calls updateUI() after every change. In "BOOT" at
-  the bottom we wrap updateUI once, so every feature redraws with the app.
-  index.html is not edited except for the one <script> tag that loads this file.
- =====================================================================
 */
 (function () {
     'use strict';
@@ -33,11 +14,12 @@
                        'Luuliyo', 'Ogosto', 'Sebtembar', 'Oktoobar', 'Nofembar', 'Desembar'];
 
     const features = [];
-    function register(name, feature) { features.push(Object.assign({ name: name }, feature)); }
+    function register(name, feature) {
+        features.push(Object.assign({ name: name }, feature));
+    }
 
     function newId() { return '_' + Math.random().toString(36).slice(2, 11); }
 
-    // False when the monthly subscription has expired (new records are locked)
     function activeSubscription() {
         return (typeof subscriptionActive === 'undefined') ? true : subscriptionActive;
     }
@@ -58,8 +40,6 @@
         return d;
     }
 
-    // Cards are placed on the Xisaab tab, right after the Profit & Loss card,
-    // in the order the features are registered.
     let lastPlaced = null;
     function placeCard(card) {
         const tab = document.getElementById('tab-acct');
@@ -74,10 +54,6 @@
         return true;
     }
 
-    // ----- Reading the dates the app stores -----
-    // Many records store the date as the phone's local text (toLocaleDateString),
-    // e.g. "10/1/2026" or "01/10/2026". We learn the phone's order (M/D/Y, D/M/Y
-    // or Y/M/D) once and use it to read those strings back.
     function toAscii(s) {
         return String(s)
             .replace(/[\u0660-\u0669]/g, function (c) { return String(c.charCodeAt(0) - 0x0660); })
@@ -87,7 +63,7 @@
     let dateOrder = null;
     function localeOrder() {
         if (dateOrder) return dateOrder;
-        dateOrder = { m: 0, d: 1, y: 2 };               // fallback: M/D/Y
+        dateOrder = { m: 0, d: 1, y: 2 };
         try {
             const nums = (toAscii(new Date(2001, 10, 22).toLocaleDateString()).match(/\d+/g) || []).map(Number);
             if (nums.length === 3) {
@@ -97,16 +73,15 @@
                     dateOrder = { y: y, d: d, m: [0, 1, 2].find(function (i) { return i !== y && i !== d; }) };
                 }
             }
-        } catch (e) { /* keep fallback */ }
+        } catch (e) { }
         return dateOrder;
     }
 
-    // Returns a Date, or null when the text can not be read
     function parseAppDate(str) {
         if (!str) return null;
         const s = toAscii(str).trim();
 
-        const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);          // YYYY-MM-DD (newer records)
+        const iso = /^(\d{4})-(\d{2})-(\d{2})/.exec(s);
         if (iso) {
             const di = new Date(Number(iso[1]), Number(iso[2]) - 1, Number(iso[3]));
             return isNaN(di.getTime()) ? null : di;
@@ -125,7 +100,7 @@
             }
         }
 
-        const t = Date.parse(s);                                  // last resort: "Oct 1, 2026"
+        const t = Date.parse(s);
         return isNaN(t) ? null : new Date(t);
     }
 
@@ -134,7 +109,6 @@
         catch (e) { console.error('[extras] ' + label + ':', e); }
     }
 
-    // ----- Shared money maths used by more than one feature -----
     function costOf(rec) {
         if (typeof itemCostCents === 'function') return itemCostCents(rec) || 0;
         return (rec && typeof rec.cogs === 'number') ? rec.cogs : 0;
@@ -153,22 +127,20 @@
     }
     function fmtDiff(c) { return (c > 0 ? '+' : '') + moneySigned(c); }
 
-    // Totals for one calendar month. Same definition of profit as the app's own P&L:
-    // Net = Sales - (COGS + Expenses + Payroll). Purchases are shown but not subtracted
-    // (they become cost only when the goods are sold, through COGS).
+    // =================================================================
+    //  MONTHLY AND ALL-TIME REPORTING
+    // =================================================================
+
     function monthStats(year, monthIndex) {
         const st = { salesC: 0, cogsC: 0, purchasesC: 0, opexC: 0, payC: 0, netC: 0, skipped: 0, byCat: {} };
         function inMonth(d) { return !!d && d.getFullYear() === year && d.getMonth() === monthIndex; }
 
-        // Cash sales (live + archived, so "Tirtir Iibka" does not erase them)
         allCashSalesForReports().forEach(function (tx) {
             const d = parseAppDate(tx.date);
             if (!d) { st.skipped++; return; }
             if (inMonth(d)) { st.salesC += toCents(tx.amount); st.cogsC += costOf(tx); }
         });
 
-        // Customer debts: money collected counts as sales (in the month of the last payment);
-        // cost of goods counts when the goods left the shop (or when paid, per app setting)
         const atSale = costAtSale();
         Object.values(customers).forEach(function (c) {
             (c.items || []).forEach(function (item) {
@@ -182,7 +154,6 @@
             });
         });
 
-        // Expenses and payroll
         expenses.forEach(function (e) {
             const d = parseAppDate(e.date);
             if (!d) { st.skipped++; return; }
@@ -192,7 +163,6 @@
             st.byCat[e.category] = (st.byCat[e.category] || 0) + c;
         });
 
-        // Purchases (opening stock is not a purchase)
         purchases.forEach(function (p) {
             if (p.opening) return;
             const d = parseAppDate(p.date);
@@ -204,7 +174,6 @@
         return st;
     }
 
-    // All-time figures, taken from the same sources as the existing P&L card
     function allTimeStats() {
         const revC = (typeof totalRevenue === 'number') ? toCents(totalRevenue) : 0;
         const cogsC = (typeof computeCogsCents === 'function') ? computeCogsCents() : 0;
@@ -217,12 +186,10 @@
                  netC: revC - (cogsC + opexC + payC) };
     }
 
-    // ----- Cash-sales archive (survives "Tirtir Iibka") -----
-    // Every cash sale the app has ever had is copied here. The app's own list (cashSales)
-    // is emptied by "Tirtir Iibka"; this archive is never emptied.
-    // Extra fields on each copy:  _live = still in cashSales at the last sync
-    //                             _carry = cashCarryCents when it was last seen live
-    //                             _void = deleted ONE BY ONE as a mistaken sale (stops counting)
+    // =================================================================
+    //  CASH-SALES ARCHIVE
+    // =================================================================
+
     const LS_ARCHIVE = 'ganacsi_cash_archive';
     const X_ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
 
@@ -239,18 +206,15 @@
         const carryNow = (typeof cashCarryCents === 'number') ? cashCarryCents : 0;
         let changed = false;
 
-        // 1. Records that left cashSales since the last sync
         const gone = archive.filter(function (r) { return r._live && !liveIds.has(r.id); });
-        // "Tirtir Iibka" raises cashCarryCents (and removes many at once);
-        // deleting a single mistaken sale does neither.
-        const cleared = gone.length >= 2 || gone.some(function (r) { return carryNow > (r._carry || 0); });
+        const cleared = gone.length >= 2 ||
+            gone.some(function (r) { return carryNow > (r._carry || 0); });
         gone.forEach(function (r) {
             r._live = false;
             if (!cleared) r._void = true;
             changed = true;
         });
 
-        // 2. New records are appended; live ones are refreshed
         cashSales.forEach(function (tx) {
             const r = byId.get(tx.id);
             if (!r) {
@@ -266,11 +230,10 @@
         if (changed) writeCashArchive(archive);
     }
 
-    // Live sales + archived sales, each sale once (by id), mistaken deletions left out
     function allCashSalesForReports() {
         const out = [];
         const seen = new Set();
-        cashSales.forEach(function (t) { seen.add(t.id); out.push(t); });
+        cashSales.forEach(function (t) { if (seen.has(t.id)) return; seen.add(t.id); out.push(t); });
         readCashArchive().forEach(function (r) {
             if (r._void || seen.has(r.id)) return;
             seen.add(r.id);
@@ -279,14 +242,10 @@
         return out;
     }
 
-    // ----- Cash on hand at the END of a past day -----
-    // Starts from today's exact figure and rolls back everything dated AFTER `iso`:
-    //   cash(iso) = cashOnHandCents()
-    //             - cash sales after iso          (live + archive)
-    //             - debt collections after iso    (by date of last payment)
-    //             + expenses after iso
-    //             + cash paid to suppliers after iso (journal lines on Cash)
-    // For today it returns exactly cashOnHandCents().
+    // =================================================================
+    //  HISTORICAL CASH CALCULATION
+    // =================================================================
+
     function cashOnHandCentsAt(iso) {
         const now = cashOnHandCents();
         if (!X_ISO_DAY.test(iso) || iso >= todayISO()) return now;
@@ -320,7 +279,7 @@
     }
 
     // =================================================================
-    //  STYLES (all classes start with "x-" so they can not clash with the app)
+    //  STYLES
     // =================================================================
 
     injectStyle('x-extras-style', [
@@ -341,21 +300,175 @@
         '.x-close-row.bad .d { color: #9f1239; }',
         '.x-close-row .s { font-size: 0.68rem; color: #64748b; margin-top: 0.1rem; }',
         '.x-close-row .f { font-size: 0.72rem; font-weight: 700; margin-top: 0.15rem; }',
-        '.x-close-row .r { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }'
+        '.x-close-row .r { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }',
+        '.x-variance-line { display:flex; justify-content:space-between; gap:0.5rem; padding:0.45rem 0; border-bottom:1px dashed #e2e8f0; font-size:0.85rem; }',
+        '.x-cashflow-total { font-weight:800; border-top:2px solid #cbd5e1; margin-top:0.25rem; padding-top:0.55rem; }'
     ].join('\n'));
 
     // =================================================================
-    //  FEATURES
+    //  === CASH VARIANCE TRACKING ===
     // =================================================================
 
-    // -----------------------------------------------------------------
-    //  FEATURE 1: Monthly summary card (Xisaab tab)
-    // -----------------------------------------------------------------
+    const LS_CASH_VARIANCE = 'ganacsi_cash_variance';
+
+    function readCashVariance() {
+        const v = parseInt(localStorage.getItem(LS_CASH_VARIANCE), 10);
+        return Number.isFinite(v) ? v : 0;
+    }
+
+    function writeCashVariance(cents) {
+        localStorage.setItem(LS_CASH_VARIANCE, String(Math.round(Number(cents) || 0)));
+    }
+
+    function installCashVarianceHooks() {
+        const editButton = document.getElementById('cash-edit-btn');
+        if (editButton && !editButton.dataset.xReconciliationInstalled) {
+            editButton.dataset.xReconciliationInstalled = '1';
+            editButton.addEventListener('click', function (event) {
+                event.preventDefault();
+                event.stopImmediatePropagation();
+                safe('cash-reconciliation', function () {
+                    reconcileCash();
+                });
+            }, true);
+        }
+    }
+
+    // =================================================================
+    //  === HAGAAJI RECONCILIATION (CORRECTED) ===
+    // =================================================================
+
+    async function reconcileCash() {
+        if (!activeSubscription()) {
+            await uiAlert('⛔ Isdiiwaangelintii waa dhammaatay.\n\nDhaqaaji koodhka bisha si aad wax cusub u kaydiso.');
+            return;
+        }
+
+        const val = await uiPrompt('Geli cash-ka aad tirisay (USD)', {
+            inputType: 'number',
+            inputMode: 'decimal',
+            okText: 'Hubi oo kaydi',
+            cancelText: 'Jooji',
+            validate: function (v) {
+                return (v !== '' && Number.isFinite(Number(v)) && Number(v) >= 0)
+                    ? ''
+                    : 'Fadlan geli lambar sax ah (0 ama ka badan).';
+            }
+        });
+        if (val === null) return;
+
+        const countedAmount = Number(val);
+        if (!Number.isFinite(countedAmount) || countedAmount < 0) {
+            await uiAlert('⚠️ Fadlan geli lacag sax ah.');
+            return;
+        }
+
+        const countedC = Math.round(countedAmount * 100);
+
+        // Read the app's real opening cash directly from storage.
+        const storedRaw = localStorage.getItem('ganacsi_cash_opening');
+        const storedOpening = (storedRaw === null) ? NaN : (parseInt(storedRaw, 10) || 0);
+
+        // First calibration: set opening balance once.
+        if (!Number.isFinite(storedOpening)) {
+            localStorage.setItem('ganacsi_cash_opening', String(countedC));
+            writeCashVariance(0);
+            saveData();
+            updateUI();
+            await uiAlert('✅ Cash Bilow waa la dejiyay.\n\nCash Bilow: ' + money(countedC) + '\nFarqi: $0.00');
+            return;
+        }
+
+        // Expected cash BEFORE any previously-recorded variance.
+        // The app's cashOnHandCents() does not include variance, so this is safe.
+        const expectedBaseC = Math.round(Number(cashOnHandCents()) || 0);
+
+        // New difference = counted − (base + previous variance)
+        const previousVarianceC = readCashVariance();
+        const expectedWithVarianceC = expectedBaseC + previousVarianceC;
+        const diffC = countedC - expectedWithVarianceC;
+
+        if (diffC === 0) {
+            await uiAlert('✅ Waa sax!\n\nLacagta la tiriyey waxay la mid tahay lacagta la filayey.');
+            return;
+        }
+
+        const newVarianceC = previousVarianceC + diffC;
+        writeCashVariance(newVarianceC);
+
+        // Persist and re-render
+        saveData();
+        updateUI();
+
+        if (diffC > 0) {
+            await uiAlert('✅ Faa\'iido Kale (Overage)\n\nFarqi cusub: ' + moneySigned(diffC) +
+                '\nFarqi isbiirsaday: ' + moneySigned(newVarianceC));
+        } else {
+            await uiAlert('⚠️ Khasaare Kale (Shortage)\n\nFarqi cusub: ' + moneySigned(diffC) +
+                '\nFarqi isbiirsaday: ' + moneySigned(newVarianceC));
+        }
+    }
+
+    // =================================================================
+    //  === CASH FLOW CARD ===
+    // =================================================================
+
+    register('cash-flow', {
+        init: function () {
+            placeCard(makeCard(
+                'x-cash-flow-card',
+                '<h2><span>💰 Cash Flow (Qulqulka Lacagta)</span></h2>' +
+                '<div id="x-cash-flow-body"></div>'
+            ));
+        },
+        render: function () {
+            const body = document.getElementById('x-cash-flow-body');
+            if (!body) return;
+
+            const cashSalesC = (Array.isArray(cashSales) ? cashSales : [])
+                .reduce(function (sum, s) { return sum + toCents(s && s.amount); }, 0);
+
+            const debtCollectionsC = Object.values(customers || {})
+                .reduce(function (ct, c) {
+                    return ct + (Array.isArray(c.items) ? c.items : [])
+                        .reduce(function (s, i) { return s + toCents(i && i.paid); }, 0);
+                }, 0);
+
+            const cashInC = cashSalesC + debtCollectionsC;
+
+            const journal = (typeof journalTotals === 'function') ? journalTotals() : { cashPaidNet: 0 };
+            const cashOutC = Number(journal.cashPaidNet) || 0;
+
+            const netC = cashInC - cashOutC;
+
+            function row(label, cents, cls) {
+                return '<div class="x-row"><span>' + label + '</span>' +
+                    '<b class="' + (cls || '') + '">' + money(cents) + '</b>' +
+                    '<span></span></div>';
+            }
+
+            body.innerHTML =
+                '<div class="x-row x-head"><span>Qaybta</span><span>Lacagta</span><span></span></div>' +
+                '<div class="x-row x-total"><span>💚 Cash In (Lacag soo gashay)</span><b class="x-pos">' + money(cashInC) + '</b><span></span></div>' +
+                row('— Iibka lacagta caddaanka', cashSalesC, 'x-pos') +
+                row('— Deynta macmiilka la ururiyay', debtCollectionsC, 'x-pos') +
+                '<div class="x-row"><span>🔴 Cash Out (Lacag baxday)</span><b class="x-neg">' + money(cashOutC) + '</b><span></span></div>' +
+                '<div class="x-row x-total x-cashflow-total"><span>Net Cash Flow</span><b class="' + (netC >= 0 ? 'x-pos' : 'x-neg') + '">' + moneySigned(netC) + '</b><span></span></div>' +
+                '<p class="x-note">Cash Bilow laguma darin Cash In. Cash In wuxuu ka kooban yahay iibka lacagta caddaanka iyo lacagaha deynta la ururiyay.</p>';
+        }
+    });
+
+    // =================================================================
+    //  FEATURE: MONTHLY SUMMARY CARD
+    // =================================================================
+
     register('monthly-summary', {
         init: function () {
-            placeCard(makeCard('x-month-card',
+            placeCard(makeCard(
+                'x-month-card',
                 '<h2><span id="x-month-title">📅 Xisaabta Bisha</span></h2>' +
-                '<div id="x-month-body"></div>'));
+                '<div id="x-month-body"></div>'
+            ));
         },
         render: function () {
             const body = document.getElementById('x-month-body');
@@ -377,93 +490,46 @@
                 row('− Kharashka alaabta (COGS)', money(m.cogsC), money(a.cogsC)) +
                 row('− Kharashka shaqada', money(m.opexC), money(a.opexC)) +
                 row('− Mushaharka', money(m.payC), money(a.payC)) +
-                '<div class="x-row x-total"><span>Faa\'iidada saafiga</span>' +
-                    '<b class="' + sign(m.netC) + '">' + moneySigned(m.netC) + '</b>' +
-                    '<b class="' + sign(a.netC) + '">' + moneySigned(a.netC) + '</b></div>' +
+                '<div class="x-row x-total"><span>Faa\'iidada saafiga</span><b class="' + sign(m.netC) + '">' + moneySigned(m.netC) + '</b><b class="' + sign(a.netC) + '">' + moneySigned(a.netC) + '</b></div>' +
                 row('Iibsashada (macluumaad)', money(m.purchasesC), money(a.purchasesC), 'x-muted') +
-                '<p class="x-note">Iibsashada lama jaro faa\'iidada: kharashka alaabta la iibiyay (COGS) ayaa la jaraa marka alaabta la iibiyo. ' +
-                'Lacagaha deynta la ururiyay waxaa loo tiriyaa bisha bixintii ugu dambeysay.' +
-                (m.skipped ? ' ⚠️ ' + m.skipped + ' diiwaan taariikh aan la akhrin karin lama tirin.' : '') +
-                '</p>';
+                '<p class="x-note">Iibsashada lama jaro faa\'iidada: kharashka alaabta la iibiyay (COGS) ayaa la jaraa marka alaabta la iibiyo.</p>';
         }
     });
 
-    // -----------------------------------------------------------------
-    //  FEATURE 2: Export / share button
-    // -----------------------------------------------------------------
+    // =================================================================
+    //  FEATURE: SHARE / EXPORT
+    // =================================================================
+
     function buildSummaryText() {
         const now = new Date();
         const m = monthStats(now.getFullYear(), now.getMonth());
         const a = allTimeStats();
         const L = [];
-
         L.push('📊 Xisaabta Ganacsigaaga');
         L.push('Taariikh: ' + todayISO());
         L.push('');
-
         L.push('📅 BISHAN — ' + MONTHS_SO[now.getMonth()] + ' ' + now.getFullYear());
         L.push('Iibka: ' + money(m.salesC));
         L.push('Kharashka alaabta (COGS): ' + money(m.cogsC));
         L.push('Kharashka shaqada: ' + money(m.opexC));
         L.push('Mushaharka: ' + money(m.payC));
         L.push('Faa\'iidada saafiga: ' + moneySigned(m.netC));
-        L.push('Iibsashada: ' + money(m.purchasesC));
         L.push('');
-
         L.push('📈 WADARTA GUUD');
         L.push('Iibka guud: ' + money(a.salesC));
         L.push('Faa\'iidada saafiga guud: ' + moneySigned(a.netC));
         L.push('');
-
-        const debtors = Object.values(customers)
-            .map(function (c) { return { name: c.name, bal: custBalanceC(c) }; })
-            .filter(function (x) { return x.bal > 0; })
-            .sort(function (x, y) { return y.bal - x.bal; });
-        const debtTotal = debtors.reduce(function (s, x) { return s + x.bal; }, 0);
-        L.push('📒 DEYNTA MACMIILKA — ' + money(debtTotal));
-        if (!debtors.length) L.push('Deyn ma jirto.');
-        debtors.slice(0, 10).forEach(function (d) { L.push('• ' + d.name + ': ' + money(d.bal)); });
-        if (debtors.length > 10) L.push('… iyo ' + (debtors.length - 10) + ' kale');
-        L.push('');
-
-        const owed = Object.values(vendorLedger)
-            .filter(function (v) { return v.balanceCents > 0; })
-            .sort(function (x, y) { return y.balanceCents - x.balanceCents; });
-        const owedTotal = owed.reduce(function (s, v) { return s + v.balanceCents; }, 0);
-        L.push('🏭 DEYNTA ALAAB-QEYBIYAYAASHA — ' + money(owedTotal));
-        if (!owed.length) L.push('Deyn ma jirto.');
-        owed.slice(0, 10).forEach(function (v) { L.push('• ' + v.name + ': ' + money(v.balanceCents)); });
-        if (owed.length > 10) L.push('… iyo ' + (owed.length - 10) + ' kale');
-        L.push('');
-
-        L.push('🧾 KHARASHKA BISHAN — ' + money(m.opexC + m.payC));
-        const cats = Object.keys(m.byCat);
-        if (!cats.length) L.push('Kharash ma jiro.');
-        cats.forEach(function (k) {
-            const label = (typeof EXP_CATS !== 'undefined' && EXP_CATS[k]) ? EXP_CATS[k] : k;
-            L.push('• ' + label + ': ' + money(m.byCat[k]));
-        });
-        L.push('');
-
-        L.push('💰 CASH HADDA: ' + (openingCashCents === null ? 'lama dejin' : moneySigned(cashOnHandCents())));
-
-        const closes = readCloses();
-        if (closes.length) {
-            const last = closes.slice().sort(function (x, y) { return x.date.localeCompare(y.date); }).pop();
-            L.push('🧾 Xiritaankii ugu dambeeyay (' + last.date + '): ' +
-                (last.diffCents === 0 ? 'waa sax' : 'farqi ' + fmtDiff(last.diffCents)));
-        }
+        L.push('💰 CASH HADDA: ' + (localStorage.getItem('ganacsi_cash_opening') === null
+            ? 'lama dejin'
+            : moneySigned(cashOnHandCents() + readCashVariance())));
         return L.join('\n');
     }
 
     function legacyCopy(text) {
         try {
             const ta = document.createElement('textarea');
-            ta.value = text;
-            ta.style.position = 'fixed';
-            ta.style.opacity = '0';
-            document.body.appendChild(ta);
-            ta.select();
+            ta.value = text; ta.style.position = 'fixed'; ta.style.opacity = '0';
+            document.body.appendChild(ta); ta.select();
             const ok = document.execCommand('copy');
             document.body.removeChild(ta);
             return !!ok;
@@ -476,73 +542,41 @@
         sharing = true;
         try {
             const text = buildSummaryText();
-
-            // 1. Phone share sheet (WhatsApp, copy, save ...)
             if (navigator.share) {
-                try {
-                    await navigator.share({ title: 'Xisaabta Ganacsigaaga', text: text });
-                    return;
-                } catch (err) {
-                    if (err && err.name === 'AbortError') return;     // user closed the sheet
-                    // any other error: fall through to copying
-                }
+                try { await navigator.share({ title: 'Xisaabta Ganacsigaaga', text: text }); return; }
+                catch (err) { if (err && err.name === 'AbortError') return; }
             }
-
-            // 2. Clipboard
             let copied = false;
             try {
                 if (navigator.clipboard && navigator.clipboard.writeText) {
-                    await navigator.clipboard.writeText(text);
-                    copied = true;
+                    await navigator.clipboard.writeText(text); copied = true;
                 }
-            } catch (err) { /* try the old way */ }
-
-            // 3. Old copy method
+            } catch (e) { }
             if (!copied) copied = legacyCopy(text);
-
-            if (copied) {
-                await uiAlert('✅ La koobiyeeyay!\n\nXisaabta waa la koobiyeeyay. Hadda ku dheji (paste) WhatsApp ama meel kale.');
-            } else {
-                await uiAlert('⚠️ Koobiyeynta lama samayn karin.\n\nKu koobiyee gacanta:\n\n' + text);
-            }
-        } finally {
-            sharing = false;
-        }
+            if (copied) await uiAlert('✅ La koobiyeeyay!\n\nHadda ku dheji (paste) WhatsApp ama meel kale.');
+            else await uiAlert('⚠️ Koobiyeynta lama samayn karin.');
+        } finally { sharing = false; }
     }
 
     register('share-export', {
         init: function () {
             const btn = document.createElement('button');
-            btn.type = 'button';
-            btn.className = 'x-btn';
-            btn.id = 'x-share-btn';
+            btn.type = 'button'; btn.className = 'x-btn'; btn.id = 'x-share-btn';
             btn.textContent = '📤 Wadaag';
             btn.addEventListener('click', shareSummary);
-
             const host = document.querySelector('#x-month-card h2');
-            if (host) {
-                host.appendChild(btn);
-            } else {
-                const card = makeCard('x-share-card', '<h2><span>📤 Wadaag Xisaabta</span></h2>');
-                card.querySelector('h2').appendChild(btn);
-                placeCard(card);
-            }
+            if (host) host.appendChild(btn);
         },
-        render: function () { /* nothing to redraw: the text is built when the button is tapped */ }
+        render: function () { }
     });
 
-    // -----------------------------------------------------------------
-    //  FEATURE 3: Daily close (cash counted vs cash expected)
-    // -----------------------------------------------------------------
-    const LS_CLOSE = 'ganacsi_daily_close';
-    // [{ id, date:'YYYY-MM-DD', time, countedCents, expectedCents, diffCents, note }]
-    function readCloses() {
-        const v = loadJSON(LS_CLOSE, []);
-        return Array.isArray(v) ? v : [];
-    }
-    function writeCloses(list) { localStorage.setItem(LS_CLOSE, JSON.stringify(list)); }
+    // =================================================================
+    //  FEATURE: DAILY CLOSE
+    // =================================================================
 
-    // The day being closed (defaults to today)
+    const LS_CLOSE = 'ganacsi_daily_close';
+    function readCloses() { const v = loadJSON(LS_CLOSE, []); return Array.isArray(v) ? v : []; }
+    function writeCloses(list) { localStorage.setItem(LS_CLOSE, JSON.stringify(list)); }
     function chosenCloseDate() {
         const el = document.getElementById('x-close-date');
         const v = el ? el.value : '';
@@ -554,7 +588,8 @@
         const input = document.getElementById('x-close-counted');
         if (!live || !input) return;
         const v = parseFloat(input.value);
-        if (openingCashCents === null || !(v >= 0)) { live.textContent = ''; return; }
+        const openingRaw = localStorage.getItem('ganacsi_cash_opening');
+        if (openingRaw === null || !(v >= 0)) { live.textContent = ''; return; }
         const diffC = toCents(v) - cashOnHandCentsAt(chosenCloseDate());
         live.className = 'x-live ' + (diffC === 0 ? 'x-pos' : 'x-neg');
         live.textContent = diffC === 0 ? '✅ Waa sax' : '⚠️ Farqi: ' + fmtDiff(diffC);
@@ -563,56 +598,40 @@
     async function submitClose(e) {
         e.preventDefault();
         if (!activeSubscription()) {
-            await uiAlert('⛔ Isdiiwaangelintii waa dhammaatay.\n\nDhaqaaji koodhka bisha si aad wax cusub u kaydiso.');
+            await uiAlert('⛔ Isdiiwaangelintii waa dhammaatay.');
             return;
         }
-        if (openingCashCents === null) {
-            await uiAlert('⚠️ Cash-ka weli lama dejin.\n\nMarka hore taabo "✏️ Hagaaji" oo geli cash-ka hadda gacanta kugu jira.');
+        const openingRaw = localStorage.getItem('ganacsi_cash_opening');
+        if (openingRaw === null) {
+            await uiAlert('⚠️ Cash-ka weli lama dejin.\n\nMarka hore taabo "✏️ Hagaaji".');
             return;
         }
-
         const counted = parseFloat(document.getElementById('x-close-counted').value);
-        if (!(counted >= 0)) {
-            await uiAlert('⚠️ Fadlan geli cash-ka aad tiriyay (0 ama ka badan).');
-            return;
-        }
-
+        if (!(counted >= 0)) { await uiAlert('⚠️ Fadlan geli cash-ka aad tiriyay.'); return; }
         const date = chosenCloseDate();
-        if (date > todayISO()) {
-            await uiAlert('⚠️ Digniin!\n\nTaariikhda xiritaanka ma noqon karto mustaqbal.');
-            return;
-        }
-        const countedC = toCents(counted);
-        const expectedC = cashOnHandCentsAt(date);       // cash as it was at the end of that day
+        if (date > todayISO()) { await uiAlert('⚠️ Taariikhda xiritaanka ma noqon karto mustaqbal.'); return; }
 
+        const countedC = toCents(counted);
+        const expectedC = cashOnHandCentsAt(date);
         const existing = readCloses().find(function (c) { return c.date === date; });
         if (existing) {
-            const ok = await uiConfirm(
-                'Taariikhdan (' + date + ') hore ayaa loo xiray.\n\nLa tiriyay: ' + money(existing.countedCents) +
-                '\n\nMa beddelaysaa xiritaankii hore?',
-                { okText: 'Beddel', cancelText: 'Jooji' }
-            );
+            const ok = await uiConfirm('Taariikhdan (' + date + ') hore aaa loo xiray.\n\nMa beddelaysaa?',
+                { okText: 'Beddel', cancelText: 'Jooji' });
             if (!ok) return;
         }
-
         const rec = {
-            id: newId(),
-            date: date,
+            id: newId(), date: date,
             time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-            countedCents: countedC,
-            expectedCents: expectedC,
+            countedCents: countedC, expectedCents: expectedC,
             diffCents: countedC - expectedC,
             note: document.getElementById('x-close-note').value.trim()
         };
         writeCloses(readCloses().filter(function (c) { return c.date !== date; }).concat([rec]));
-
         document.getElementById('x-close-form').reset();
         document.getElementById('x-close-date').value = todayISO();
         renderClose();
-
         if (rec.diffCents !== 0) {
-            await uiAlert('⚠️ Farqi ayaa jira!\n\nTaariikh: ' + date +
-                '\nLa tiriyay: ' + money(countedC) +
+            await uiAlert('⚠️ Farqi ayaa jira!\n\nLa tiriyay: ' + money(countedC) +
                 '\nLa filayay: ' + moneySigned(expectedC) +
                 '\nFarqi: ' + fmtDiff(rec.diffCents));
         }
@@ -621,11 +640,8 @@
     async function deleteClose(id) {
         const rec = readCloses().find(function (c) { return c.id === id; });
         if (!rec) return;
-        const ok = await uiConfirm(
-            '⚠️ Digniin!\n\nWaxaad tirtirayaa xiritaankii ' + rec.date + ':\nLa tiriyay: ' + money(rec.countedCents) +
-            '\n\nMa hubtaa?',
-            { danger: true, okText: 'Tirtir', cancelText: 'Jooji' }
-        );
+        const ok = await uiConfirm('⚠️ Ma hubtaa inaad tirtirto xiritaankii ' + rec.date + '?',
+            { danger: true, okText: 'Tirtir', cancelText: 'Jooji' });
         if (!ok) return;
         writeCloses(readCloses().filter(function (c) { return c.id !== id; }));
         renderClose();
@@ -636,34 +652,23 @@
         const listEl = document.getElementById('x-close-list');
         const dateEl = document.getElementById('x-close-date');
         if (!exp || !listEl) return;
-        if (dateEl) {
-            dateEl.max = todayISO();
-            if (!dateEl.value) dateEl.value = todayISO();
-        }
-
+        if (dateEl) { dateEl.max = todayISO(); if (!dateEl.value) dateEl.value = todayISO(); }
+        const openingRaw = localStorage.getItem('ganacsi_cash_opening');
         const day = chosenCloseDate();
-        exp.textContent = (openingCashCents === null)
-            ? '⚠️ Cash-ka weli lama dejin. Taabo "✏️ Hagaaji" si aad u dejiso.'
+        exp.textContent = (openingRaw === null)
+            ? '⚠️ Cash-ka weli lama dejin. Taabo "✏️ Hagaaji".'
             : (day === todayISO() ? 'Cash la filayo hadda: ' : 'Cash la filayay dhammaadkii ' + day + ': ') +
                 moneySigned(cashOnHandCentsAt(day));
         updateLiveDiff();
-
         const all = readCloses().slice().sort(function (x, y) {
             return x.date.localeCompare(y.date) || (x.time || '').localeCompare(y.time || '');
         });
-        if (!all.length) {
-            listEl.innerHTML = '<p class="text-center">Wali xiritaan lama gelin.</p>';
-            return;
-        }
-
+        if (!all.length) { listEl.innerHTML = '<p class="text-center">Wali xiritaan lama gelin.</p>'; return; }
         const flagged = all.filter(function (c) { return c.diffCents !== 0; }).length;
         let html = '<p class="x-note">' + all.length + ' maalmood la xiray • ' +
-            (flagged ? '⚠️ ' + flagged + ' maalmood oo farqi leh' : '✅ dhammaan waa sax') + '</p>';
-
+            (flagged ? '⚠️ ' + flagged + ' farqi leh' : '✅ dhammaan waa sax') + '</p>';
         all.map(function (c, i) { return { c: c, opening: i > 0 ? all[i - 1].countedCents : null }; })
-            .reverse()
-            .slice(0, 14)
-            .forEach(function (x) {
+            .reverse().slice(0, 14).forEach(function (x) {
                 const c = x.c;
                 const bad = c.diffCents !== 0;
                 const status = !bad ? '✅ Waa sax'
@@ -690,8 +695,7 @@
                 '<h2><span>🧾 Xiritaanka Maalinta (Daily Close)</span></h2>' +
                 '<form id="x-close-form">' +
                     '<p class="hint info" id="x-close-expected"></p>' +
-                    '<div><label>Taariikhda xiritaanka</label>' +
-                        '<input type="date" id="x-close-date"></div>' +
+                    '<div><label>Taariikhda xiritaanka</label><input type="date" id="x-close-date"></div>' +
                     '<div><label>Cash-ka aad tiriyay (USD)</label>' +
                         '<input type="number" step="any" min="0" id="x-close-counted" placeholder="0.00" required>' +
                         '<p class="x-live" id="x-close-live"></p></div>' +
@@ -702,52 +706,35 @@
                 '<p class="jr-head">Xiritaannadii hore</p>' +
                 '<div id="x-close-list"></div>');
             placeCard(card);
-
             const closeDateEl = card.querySelector('#x-close-date');
-            closeDateEl.max = todayISO();                  // no future days
-            closeDateEl.value = todayISO();                // default = today
-            closeDateEl.addEventListener('change', renderClose);   // redraws "cash la filayay" + live difference
-
+            closeDateEl.max = todayISO();
+            closeDateEl.value = todayISO();
+            closeDateEl.addEventListener('change', renderClose);
             card.querySelector('#x-close-form').addEventListener('submit', submitClose);
             card.querySelector('#x-close-counted').addEventListener('input', updateLiveDiff);
             card.querySelector('#x-close-list').addEventListener('click', function (e) {
                 const b = e.target.closest('button[data-x-del-close]');
                 if (b) deleteClose(b.getAttribute('data-x-del-close'));
             });
-
-            // Expired subscription: no new closes (viewing and deleting still work)
             if (!activeSubscription()) {
                 card.querySelectorAll('#x-close-form input').forEach(function (el) { el.disabled = true; });
                 const btn = card.querySelector('#x-close-save');
                 btn.disabled = true;
-                btn.textContent = '🔒 Xiran — Dhaqaaji si aad u kaydiso';
+                btn.textContent = '🔒 Xiran';
             }
         },
         render: renderClose
     });
 
-    // -----------------------------------------------------------------
-    //  TEMPLATE FOR A NEW FEATURE (copy, rename, fill in, keep above BOOT)
-    // -----------------------------------------------------------------
-    //  register('my-feature', {
-    //      init: function () {
-    //          placeCard(makeCard('x-my-card', '<h2><span>🆕 Cinwaan</span></h2><div id="x-my-body"></div>'));
-    //      },
-    //      render: function () {
-    //          document.getElementById('x-my-body').textContent = money(toCents(1));
-    //      }
-    //  });
-
     // =================================================================
-    //  BOOT  (keep at the bottom)
+    //  BOOT
     // =================================================================
 
     function renderAll() {
-        safe('cash-archive', syncCashArchive);      // keep the sales archive up to date before drawing
+        safe('cash-archive', syncCashArchive);
         features.forEach(function (f) { safe(f.name + ':render', f.render); });
     }
 
-    // Wrap updateUI once so every feature redraws whenever the app refreshes
     function wrapUpdateUI() {
         if (typeof updateUI !== 'function' || updateUI.__xExtras) return;
         const original = updateUI;
@@ -761,11 +748,13 @@
     }
 
     function boot() {
+        installCashVarianceHooks();
         features.forEach(function (f) { safe(f.name + ':init', f.init); });
         wrapUpdateUI();
-        renderAll();            // the app already drew once before this file loaded
+        renderAll();
     }
 
     if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', boot);
     else boot();
+
 })();
