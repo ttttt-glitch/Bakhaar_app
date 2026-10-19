@@ -207,8 +207,7 @@
         let changed = false;
 
         const gone = archive.filter(function (r) { return r._live && !liveIds.has(r.id); });
-        const cleared = gone.length >= 2 ||
-            gone.some(function (r) { return carryNow > (r._carry || 0); });
+        const cleared = gone.length >= 2 || gone.some(function (r) { return carryNow > (r._carry || 0); });
         gone.forEach(function (r) {
             r._live = false;
             if (!cleared) r._void = true;
@@ -321,6 +320,7 @@
     }
 
     function installCashVarianceHooks() {
+        // Intercept the existing Hagaaji button
         const editButton = document.getElementById('cash-edit-btn');
         if (editButton && !editButton.dataset.xReconciliationInstalled) {
             editButton.dataset.xReconciliationInstalled = '1';
@@ -332,10 +332,54 @@
                 });
             }, true);
         }
+
+        // === NEW FIX: Inject the variance line visually into the card ===
+        // We use a MutationObserver to wait for index.html to draw the card,
+        // then we inject our variance line right above the "Cash hadda" total.
+        if (!window.__xVarianceObserverInstalled) {
+            window.__xVarianceObserverInstalled = true;
+            const cashCardObserver = new MutationObserver(function() {
+                const card = document.getElementById('cash-card');
+                if (!card) return;
+                
+                // Only inject if the card has been drawn (contains the pl-net class)
+                const net = card.querySelector('.pl-net');
+                if (!net) return;
+                
+                // Remove any existing variance line to prevent duplicates
+                const oldVariance = card.querySelector('.x-variance-line');
+                if (oldVariance) oldVariance.remove();
+
+                const varianceC = readCashVariance();
+                
+                // Only show the line if there is actually a variance
+                if (varianceC !== 0) {
+                    const row = document.createElement('div');
+                    row.className = 'pl-line x-variance-line';
+                    row.style.cssText = 'display:flex; justify-content:space-between; gap:0.5rem; padding:0.45rem 0; border-bottom:1px dashed #e2e8f0; font-size:0.85rem;';
+
+                    const label = document.createElement('span');
+                    label.textContent = '± Farqi (Hagaajin)';
+
+                    const value = document.createElement('b');
+                    value.className = varianceC > 0 ? 'x-pos' : 'x-neg';
+                    value.textContent = moneySigned(varianceC);
+
+                    row.appendChild(label);
+                    row.appendChild(value);
+                    
+                    // Insert it right before the big green box
+                    net.parentNode.insertBefore(row, net);
+                }
+            });
+            
+            // Start watching the document for changes
+            cashCardObserver.observe(document.body, { childList: true, subtree: true });
+        }
     }
 
     // =================================================================
-    //  === HAGAAJI RECONCILIATION (CORRECTED) ===
+    //  === HAGAAJI RECONCILIATION ===
     // =================================================================
 
     async function reconcileCash() {
