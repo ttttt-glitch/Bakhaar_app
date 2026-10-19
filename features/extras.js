@@ -300,7 +300,6 @@
         '.x-close-row .s { font-size: 0.68rem; color: #64748b; margin-top: 0.1rem; }',
         '.x-close-row .f { font-size: 0.72rem; font-weight: 700; margin-top: 0.15rem; }',
         '.x-close-row .r { display: flex; align-items: center; gap: 0.3rem; flex-shrink: 0; }',
-        '.x-variance-line { display:flex; justify-content:space-between; gap:0.5rem; padding:0.45rem 0; border-bottom:1px dashed #e2e8f0; font-size:0.85rem; }',
         '.x-cashflow-total { font-weight:800; border-top:2px solid #cbd5e1; margin-top:0.25rem; padding-top:0.55rem; }'
     ].join('\n'));
 
@@ -331,50 +330,6 @@
                     reconcileCash();
                 });
             }, true);
-        }
-
-        // === NEW FIX: Inject the variance line visually into the card ===
-        // We use a MutationObserver to wait for index.html to draw the card,
-        // then we inject our variance line right above the "Cash hadda" total.
-        if (!window.__xVarianceObserverInstalled) {
-            window.__xVarianceObserverInstalled = true;
-            const cashCardObserver = new MutationObserver(function() {
-                const card = document.getElementById('cash-card');
-                if (!card) return;
-                
-                // Only inject if the card has been drawn (contains the pl-net class)
-                const net = card.querySelector('.pl-net');
-                if (!net) return;
-                
-                // Remove any existing variance line to prevent duplicates
-                const oldVariance = card.querySelector('.x-variance-line');
-                if (oldVariance) oldVariance.remove();
-
-                const varianceC = readCashVariance();
-                
-                // Only show the line if there is actually a variance
-                if (varianceC !== 0) {
-                    const row = document.createElement('div');
-                    row.className = 'pl-line x-variance-line';
-                    row.style.cssText = 'display:flex; justify-content:space-between; gap:0.5rem; padding:0.45rem 0; border-bottom:1px dashed #e2e8f0; font-size:0.85rem;';
-
-                    const label = document.createElement('span');
-                    label.textContent = '± Farqi (Hagaajin)';
-
-                    const value = document.createElement('b');
-                    value.className = varianceC > 0 ? 'x-pos' : 'x-neg';
-                    value.textContent = moneySigned(varianceC);
-
-                    row.appendChild(label);
-                    row.appendChild(value);
-                    
-                    // Insert it right before the big green box
-                    net.parentNode.insertBefore(row, net);
-                }
-            });
-            
-            // Start watching the document for changes
-            cashCardObserver.observe(document.body, { childList: true, subtree: true });
         }
     }
 
@@ -409,11 +364,9 @@
 
         const countedC = Math.round(countedAmount * 100);
 
-        // Read the app's real opening cash directly from storage.
         const storedRaw = localStorage.getItem('ganacsi_cash_opening');
         const storedOpening = (storedRaw === null) ? NaN : (parseInt(storedRaw, 10) || 0);
 
-        // First calibration: set opening balance once.
         if (!Number.isFinite(storedOpening)) {
             localStorage.setItem('ganacsi_cash_opening', String(countedC));
             writeCashVariance(0);
@@ -423,11 +376,7 @@
             return;
         }
 
-        // Expected cash BEFORE any previously-recorded variance.
-        // The app's cashOnHandCents() does not include variance, so this is safe.
         const expectedBaseC = Math.round(Number(cashOnHandCents()) || 0);
-
-        // New difference = counted − (base + previous variance)
         const previousVarianceC = readCashVariance();
         const expectedWithVarianceC = expectedBaseC + previousVarianceC;
         const diffC = countedC - expectedWithVarianceC;
@@ -440,7 +389,6 @@
         const newVarianceC = previousVarianceC + diffC;
         writeCashVariance(newVarianceC);
 
-        // Persist and re-render
         saveData();
         updateUI();
 
@@ -454,7 +402,7 @@
     }
 
     // =================================================================
-    //  === CASH FLOW CARD ===
+    //  === CASH FLOW CARD (Now includes Variance) ===
     // =================================================================
 
     register('cash-flow', {
@@ -479,11 +427,11 @@
                 }, 0);
 
             const cashInC = cashSalesC + debtCollectionsC;
-
             const journal = (typeof journalTotals === 'function') ? journalTotals() : { cashPaidNet: 0 };
             const cashOutC = Number(journal.cashPaidNet) || 0;
-
             const netC = cashInC - cashOutC;
+            
+            const varianceC = readCashVariance();
 
             function row(label, cents, cls) {
                 return '<div class="x-row"><span>' + label + '</span>' +
@@ -491,14 +439,23 @@
                     '<span></span></div>';
             }
 
-            body.innerHTML =
+            let html =
                 '<div class="x-row x-head"><span>Qaybta</span><span>Lacagta</span><span></span></div>' +
                 '<div class="x-row x-total"><span>💚 Cash In (Lacag soo gashay)</span><b class="x-pos">' + money(cashInC) + '</b><span></span></div>' +
                 row('— Iibka lacagta caddaanka', cashSalesC, 'x-pos') +
                 row('— Deynta macmiilka la ururiyay', debtCollectionsC, 'x-pos') +
-                '<div class="x-row"><span>🔴 Cash Out (Lacag baxday)</span><b class="x-neg">' + money(cashOutC) + '</b><span></span></div>' +
+                '<div class="x-row"><span>🔴 Cash Out (Lacag baxday)</span><b class="x-neg">' + money(cashOutC) + '</b><span></span></div>';
+                
+            if (varianceC !== 0) {
+                const cls = varianceC > 0 ? 'x-pos' : 'x-neg';
+                html += '<div class="x-row"><span>± Farqi (Hagaajin)</span><b class="' + cls + '">' + moneySigned(varianceC) + '</b><span></span></div>';
+            }
+
+            html += 
                 '<div class="x-row x-total x-cashflow-total"><span>Net Cash Flow</span><b class="' + (netC >= 0 ? 'x-pos' : 'x-neg') + '">' + moneySigned(netC) + '</b><span></span></div>' +
                 '<p class="x-note">Cash Bilow laguma darin Cash In. Cash In wuxuu ka kooban yahay iibka lacagta caddaanka iyo lacagaha deynta la ururiyay.</p>';
+                
+            body.innerHTML = html;
         }
     });
 
