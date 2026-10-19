@@ -373,6 +373,7 @@
             saveData();
             updateUI();
             await uiAlert('✅ Cash Bilow waa la dejiyay.\n\nCash Bilow: ' + money(countedC) + '\nFarqi: $0.00');
+            location.reload(); // Force page reload to show the new balance instantly
             return;
         }
 
@@ -399,10 +400,13 @@
             await uiAlert('⚠️ Khasaare Kale (Shortage)\n\nFarqi cusub: ' + moneySigned(diffC) +
                 '\nFarqi isbiirsaday: ' + moneySigned(newVarianceC));
         }
+        
+        // Force the page to reload so the main app sees the new data instantly
+        location.reload();
     }
 
     // =================================================================
-    //  === CASH FLOW CARD (Now includes Variance) ===
+    //  === CASH FLOW CARD ===
     // =================================================================
 
     register('cash-flow', {
