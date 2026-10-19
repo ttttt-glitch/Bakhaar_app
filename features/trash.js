@@ -22,8 +22,6 @@
     function snapshotState() {
         previousState = {
             customers: JSON.parse(JSON.stringify(customers)),
-            purchases: JSON.parse(JSON.stringify(purchases)),
-            vendorPayments: JSON.parse(JSON.stringify(vendorPayments)),
             cashSales: JSON.parse(JSON.stringify(cashSales)),
             
             // Track financial state so we can distinguish individual
@@ -59,21 +57,7 @@
             }
         });
 
-        // 2. Check Purchases
-        (previousState.purchases || []).forEach(pItem => {
-            if (!purchases.find(lItem => lItem.id === pItem.id)) {
-                newItems.push({ type: 'iibsasho', data: pItem, date: new Date().toISOString() });
-            }
-        });
-
-        // 3. Check Vendor Payments
-        (previousState.vendorPayments || []).forEach(vItem => {
-            if (!vendorPayments.find(lItem => lItem.id === vItem.id)) {
-                newItems.push({ type: 'bixin', data: vItem, date: new Date().toISOString() });
-            }
-        });
-
-        // 4. Check Cash Sales (Iibka) — Change 2: Detect Clear Sales (ChatGPT fix)
+        // 2. Check Cash Sales (Iibka) — Change 2: Detect Clear Sales (ChatGPT fix)
         const previousRevenue = Number(previousState.totalRevenue) || 0;
         const previousCarry = Number(previousState.cashCarryCents) || 0;
         const currentRevenue = Number(totalRevenue) || 0;
@@ -147,14 +131,6 @@
                 name = `🛒 Iib: ${t.data.customer} - ${t.data.description}`;
                 amount = money(toCents(t.data.amount));
                 badgeColor = '#059669';
-            } else if (t.type === 'iibsasho') {
-                name = `📥 Iibsasho: ${t.data.item} (${t.data.supplier})`;
-                amount = money(toCents(t.data.total));
-                badgeColor = '#4c1d95';
-            } else if (t.type === 'bixin') {
-                name = `💵 Bixin: ${t.data.vendor}`;
-                amount = money(toCents(t.data.amount));
-                badgeColor = '#0369a1';
             }
 
             listHtml += `
@@ -179,7 +155,6 @@
     }
 
     // --- ACTIONS ---
-    // Change 3: Replaced restore function with ChatGPT's safe fix
     window.restoreTrashItem = async function (index) {
         const trash = getTrash().slice().reverse();
         const item = trash[index];
@@ -280,23 +255,7 @@
             restored = true;
         }
 
-        // Restore purchase.
-        else if (item.type === 'iibsasho') {
-            if (!hasExistingId(purchases, data.id)) {
-                purchases.push({ ...data });
-                restored = true;
-            }
-        }
-
-        // Restore vendor payment.
-        else if (item.type === 'bixin') {
-            if (!hasExistingId(vendorPayments, data.id)) {
-                vendorPayments.push({ ...data });
-                restored = true;
-            }
-        }
-
-        // Reject unknown trash types without removing their records.
+        // Reject unknown trash types (like iibsasho/bixin) without removing their records.
         else {
             await uiAlert('Nooca xogtan lama aqoonsan.');
             return;
