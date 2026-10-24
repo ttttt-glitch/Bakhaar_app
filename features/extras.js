@@ -218,7 +218,6 @@
         return out;
     }
 
-    // === FIXED: cashOnHandCentsAt now includes variance ===
     function cashOnHandCentsAt(iso) {
         const now = cashOnHandCents() + readCashVariance();
         if (!X_ISO_DAY.test(iso) || iso >= todayISO()) return now;
@@ -281,7 +280,6 @@
         localStorage.setItem(LS_CASH_VARIANCE, String(Math.round(Number(cents) || 0)));
     }
 
-    // === CLAUDE'S NEW WRAPPER (UNCHANGED) ===
     function applyVarianceToCashCard() {
         const card = document.getElementById('cash-card');
         if (!card) return;
@@ -685,6 +683,95 @@
         },
         render: renderClose
     });
+
+    // =================================================================
+    //  FEATURE: CASH SALES (Iibka) GROUPED BY CUSTOMER (Claude's addition)
+    // =================================================================
+
+    function renderSalesGrouped() {
+        const listEl = document.getElementById('sales-list');
+        if (!listEl || !Array.isArray(cashSales)) return;
+
+        const searchEl = document.getElementById('sales-search');
+        const term = normalize(searchEl ? searchEl.value : '');
+
+        const rows = [];
+        cashSales.forEach(function (tx, idx) {
+            if (!term || normalize(tx.customer).indexOf(term) !== -1 || normalize(tx.description).indexOf(term) !== -1) {
+                rows.push({ tx: tx, idx: idx });
+            }
+        });
+        if (!rows.length) return;
+
+        const groups = {};
+        const order = [];
+        rows.forEach(function (r) {
+            const key = normalize(r.tx.customer) || '_';
+            if (!groups[key]) {
+                groups[key] = { name: '', rows: [], last: -1, totalC: 0 };
+                order.push(key);
+            }
+            const g = groups[key];
+            g.name = String(r.tx.customer || '').trim() || '—';
+            g.rows.push(r);
+            g.last = Math.max(g.last, r.idx);
+            g.totalC += toCents(r.tx.amount);
+        });
+
+        order.sort(function (a, b) { return groups[b].last - groups[a].last; });
+
+        let html = '';
+        order.forEach(function (key) {
+            const g = groups[key];
+            let rowsHtml = '';
+            g.rows.slice().reverse().forEach(function (r) {
+                const tx = r.tx;
+                const qtyTxt = (typeof qtyLabel === 'function') ? qtyLabel(tx) : '';
+                rowsHtml +=
+                    '<div class="x-sg-row">' +
+                        '<span>' + escapeHtml(tx.description) + ' — <b class="x-sg-amt">' + money(toCents(tx.amount)) + '</b> ' +
+                            '<span style="font-size:9px; color:#64748b;">(' + escapeHtml(tx.date) + ' • ' + escapeHtml(tx.time) + ' • Kaash' + escapeHtml(qtyTxt) + ')</span></span>' +
+                        '<button type="button" class="del-btn" data-action="delete-cash" data-id="' + escapeHtml(tx.id) + '">✕ Tirtir</button>' +
+                    '</div>';
+            });
+
+            html +=
+                '<div class="x-sg-card">' +
+                    '<div class="x-sg-head">' +
+                        '<div>' +
+                            '<p class="x-sg-name">👤 ' + escapeHtml(g.name) + '</p>' +
+                            '<span class="x-sg-sub">' + g.rows.length + ' iib • Wadarta Iibka</span>' +
+                        '</div>' +
+                        '<span class="x-sg-total">' + money(g.totalC) + '</span>' +
+                    '</div>' +
+                    rowsHtml +
+                '</div>';
+        });
+
+        listEl.innerHTML = html;
+    }
+
+    register('sales-grouped', {
+        init: function () {
+            injectStyle('x-sales-group-style', [
+                '.x-sg-card { background: #ecfdf5; border: 1px solid #a7f3d0; border-radius: 0.5rem; padding: 0.75rem; font-size: 0.875rem; flex-shrink: 0; }',
+                '.x-sg-head { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem; border-bottom: 1px solid #a7f3d0; padding-bottom: 0.3rem; }',
+                '.x-sg-name { font-weight: 700; color: #065f46; font-size: 0.95rem; }',
+                '.x-sg-sub { font-size: 10px; color: #64748b; }',
+                '.x-sg-total { font-weight: 700; font-size: 1.1rem; color: #059669; white-space: nowrap; }',
+                '.x-sg-row { display: flex; justify-content: space-between; align-items: center; gap: 0.5rem; font-size: 0.8rem; color: #475569; margin-top: 0.3rem; padding-left: 0.5rem; border-left: 2px solid #34d399; }',
+                '.x-sg-amt { color: #059669; }'
+            ].join('\n'));
+
+            const search = document.getElementById('sales-search');
+            if (search) search.addEventListener('input', renderSalesGrouped);
+        },
+        render: renderSalesGrouped
+    });
+
+    // =================================================================
+    //  BOOT
+    // =================================================================
 
     function renderAll() {
         safe('cash-archive', syncCashArchive);
